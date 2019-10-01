@@ -1,0 +1,128 @@
+VARIABLES SECTION
+
+FILE <$BB_Hot>         = Emis, IgSm, PhSm, ScSm, TR;
+FILE <$BB_Cold>        = Emis, IgSm, PhSm, ScSm, TR;
+FILE <$AtmSave>         = Emis, IgSm, PhSm, ScSm, TR;
+FILE <$AtmToCalib>      = Emis, IgSm, PhSm, ScSm, TR;
+FILE <$HotMinusCold>    = IgSm, ScSm;
+FILE <$AtmMinusCold>    = IgSm, ScSm, PhSm;
+
+STRING <COPY_PY>        = 'C:\\Users\Philipp\Desktop\Kalibration\calibration_script\copy_py.bat'; 
+STRING <COPY_DATABLOCK> = 'C:\\Users\Philipp\Desktop\Kalibration\calibration_script\copy_datablock.bat'; 
+STRING <PATH_ROOT>      = 'C:\\Users\Philipp\Desktop\Kalibration\calibrated\workon\';
+STRING <Dates>          = 'NULL';
+STRING <Atm>            = 'NULL';
+STRING <textstring>     = 'NULL';
+STRING <textstringCold> = 'NULL';
+STRING <textstringHot>  = 'NULL';
+STRING <hotfile>        = 'C:\\Users\Philipp\Desktop\Kalibration\calibrated\workon\hotfile.dat'; 
+STRING <coldfile>       = 'C:\\Users\Philipp\Desktop\Kalibration\calibrated\workon\coldfile.dat';
+STRING <atmfile>        = 'C:\\Users\Philipp\Desktop\Kalibration\calibrated\workon\atmfile.dat';
+
+NUMERIC <index>         = 0;
+NUMERIC <THot>          = 0;
+NUMERIC <TCold>         = 0;
+NUMERIC <ZaehlerAtm>    = 0;
+NUMERIC <ZaehlerAV>     = 0;
+NUMERIC <cmd_param>     = 0;
+NUMERIC <Num>           = 0;
+NUMERIC <cycle>         = 0;
+NUMERIC <num_Dates>     = 0;
+NUMERIC <resolution>    = 0.3;
+NUMERIC <emis_hot>      = 1.0;
+NUMERIC <emis_cold>     = 1.0;
+NUMERIC <ind>           = 0;
+NUMERIC <Number>        = 0;	
+
+PROGRAM SECTION
+
+<Number> = 10;
+<ind> = 0;
+REM StartLoop(<Number>, 512);
+REM <ind> = <ind> + 1;
+REM Message("Loop " <ind>"/"<Number>, ON_SCREEN, 3);
+ExternalProgram (0, {XPF=1, XST=0, XPR='<COPY_PY>', XWI=1, XWS=0, XCW=1, XSB=0, DDE=0, DDS='', DDT='', DDI='', DDD=''});
+Timer(WAITTIME, 10);
+
+
+<textstringHot> = ReadTextFile('<hotfile>');
+<THot> = <textstringHot>[0];
+<$BB_Hot> = LoadFile('<textstringHot>[1]', WARNING|ABORT);
+<textstringCold> = ReadTextFile('<coldfile>');
+<TCold> = <textstringCold>[0];
+<$BB_Cold> = LoadFile('<textstringCold>[1]', WARNING|ABORT);
+
+[<$BB_Hot>:ScSm] =  FFT ([<$BB_Hot>:IgSm], 0, {FPP=0, FSM='NO', FSR=0, FSY=128, FNE=0.800000, FNC=100.000000, FNL=0, FBW=3, FTT=0, FLR=0, FHR=0.000000, FTR=<resolution>, FTE=2000.000000, FTS=0.000000, FZF='2', FTA='BX', FHZ='ML'});
+[<$BB_Cold>:ScSm] =  FFT ([<$BB_Cold>:IgSm], 0, {FPP=0, FSM='NO', FSR=0, FSY=128, FNE=0.800000, FNC=100.000000, FNL=0, FBW=3, FTT=0, FLR=0, FHR=0.000000, FTR=<resolution>, FTE=2000.000000, FTS=0.000000, FZF='2', FTA='BX', FHZ='ML'});
+
+<textstring> = ReadTextFile('<atmfile>');
+<ZaehlerAtm> = GetArrayCount('<textstring>');
+[<$HotMinusCold>:IgSm] = Calculator ([<$BB_Hot>:IgSm][<$BB_Cold>:IgSm], {FOR='-[<$BB_Hot>:IgSm]+[<$B_Cold>:IgSm]'});
+[<$HotMinusCold>:ScSm] = FFT ([<$HotMinusCold>:IgSm], 0, {FPP=28566, FSM='NO', FSR=0, FSY=128, FNE=0.800000, FNC=100.000000, FNL=0, FBW=3, FTT=0, FLR=1, FHR=0.000000, FTR=<resolution>, FTE=2000.000000, FTS=0.000000, FZF='2', FTA='BX', FHZ='ML'});
+BlackBody ([<$BB_Cold>:ScSm], {QTE=<TCold>, QPH=0});
+BlackBody ([<$BB_Hot>:ScSm], {QTE=<THot>, QPH=0});
+<index> = 0;
+StartLoop (<ZaehlerAtm>, 4);
+	<$AtmToCalib> = LoadFile('<textstring>[<index>]', WARNING|ABORT);
+	<Atm> = GetParameter([<$AtmToCalib>:ScSm], NAM);
+	
+	[<$AtmToCalib>:ScSm] = FFT ([<$AtmToCalib>:IgSm], 0, {FPP=28566, FSM='NO', FSR=0, FSY=128, FNE=0.800000, FNC=100.000000, FNL=0, FBW=3, FTT=16, FLR=0, FHR=0.000000, FTR=<resolution>, FTE=2000.000000, FTS=0.000000, FZF='2', FTA='BX', FHZ='ML'});
+	SaveAs ([<$AtmToCalib>], {DAP='<PATH_ROOT>', OEX='1', SAN='<Atm>', COF=2, INP='C:\Program Files\Opus\METHODS', IFP='C:\Program Files\Opus\METHODS', INM='DEFAULT', IFN='DEFAULT', DPA=10, DPO=10, SEP=' ', YON='0', ADP='1'});
+	
+	[<$AtmMinusCold>:IgSm] = Calculator ([<$BB_Cold>:IgSm][<$AtmToCalib>:IgSm], {FOR='[<$AtmToCalib>:IgSm]-[<$ABB_Cold>:IgSm]'});
+	[<$AtmMinusCold>:ScSm] = FFT ([<$AtmMinusCold>:IgSm], 0, {FPP=28566, FSM='NO', FSR=0, FSY=128, FNE=0.800000, FNC=100.000000, FNL=0, FBW=3, FTT=16, FLR=0, FHR=0.000000, FTR=<resolution>, FTE=2000.000000, FTS=0.000000, FZF='2', FTA='BX', FHZ='ML'});
+	[<$AtmSave>:ScSm] = Calculator ([<$BB_Hot>:ScSm][<$BB_Cold>:ScSm][<$HotMinusCold>:ScSm][<$AtmMinusCold>:ScSm], {FOR='[<$BB_Cold>:ScSm] - ([<$BB_Hot>:ScSm]-[<$BB_Cold>:ScSm])/[<$HotMinusCold>:ScSm]*[<$AtmMinusCold>:ScSm]'});
+	SaveAs ([<$AtmSave>:ScSm],{DAP='<PATH_ROOT>', OEX='1', SAN='<Atm>.notime', COF=2, INP='C:\Program Files\Opus\METHODS', IFP='C:\Program Files\Opus\METHODS', INM='DEFAULT', IFN='DEFAULT', DPA=10, DPO=10, SEP=' ', YON='0', ADP='1'});
+
+	Restore([<$AtmToCalib>], {});
+	Unload([<$AtmToCalib>], {});
+	Unload([<$AtmSave>], {});
+	Unload([<$AtmMinusCold>], {});
+	ExternalProgram (0, {XPF=1, XST=0, XPR='<COPY_DATABLOCK>', XPA='<Atm>', XWI=1, XWS=0, XCW=1, XSB=0, DDE=0, DDS='', DDT='', DDI='', DDD=''});
+	Timer(WAITTIME, 3);
+	<index> = <index> + 1;
+EndLoop (4);
+Restore([<$AVG_Cold>], {});
+Restore([<$AVG_Hot>], {});
+Unload([<$HotMinusCold>], {});
+Unload([<$AVG_Cold>], {});
+Unload([<$AVG_Hot>], {});
+
+TextToFile('<PATH_ROOT>', 'log_<Atm>.log', Hot:<hotfile>, APPEND_TEXT);
+TextToFile('<PATH_ROOT>', 'log_<Atm>.log', Cold:<coldfile>, APPEND_TEXT);
+TextToFile('<PATH_ROOT>', 'log_<Atm>.log', Atm:<atmfile>, APPEND_TEXT);
+TextToFile('<PATH_ROOT>', 'log_<Atm>.log', <THot>;<TCold>, APPEND_TEXT);
+<cmd_param> = <cmd_param> + 1;
+EndLoop(72);
+EndLoop(49);
+REM EndLoop(512);
+PARAMETER SECTION
+
+QFC='';
+QFB='';
+QAO=0;
+QAN='*.*';
+QAM='C:\Program Files\Opus\';
+QAL='LIS';
+QAF='NO';
+QAE='NO';
+QA2=0;
+QA0=1;
+FHZ='ML';
+FTA='BX';
+FZF='2';
+FTS=0.000000;
+FTE=2000.000000;
+FTR=2.000000;
+FHR=0.000000;
+FLR=0;
+FTT=0;
+FBW=3;
+FNL=0;
+FNC=100.000000;
+FNE=0.800000;
+FSY=128;
+FSR=0;
+FSM='NO';
+FPP=0;
+ 
