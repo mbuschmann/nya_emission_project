@@ -11,13 +11,15 @@ class Vertex80():
         self.cmd_htm = '/'.join((self.url_ftir,'cmd.htm'))
         self.diag_htm = '/'.join((self.url_ftir, 'diag.htm'))
         self.data_htm = '/'.join((self.url_ftir, 'datafile.htm'))
-        self.init_params = {'CNM':'AUTO Vertex',
+        self.init_params = {'WRK':1,
+                            'CNM':'AUTOVertex',
                             'FLP': 0,
                             'SRC': 0}
         html_line = '&'.join(['='.join((x[0].strip(), str(x[1]).strip())) for x in self.init_params.items()])
         meas_command = '/'.join((self.url_ftir,self.cmd_htm))
         print('?'.join((self.cmd_htm,html_line)))
         requests.get('?'.join((self.cmd_htm,html_line)))
+        self.spectrumupdated = False
         
     def default_meas(self): 
         self.meas_params =  {'FLP': 0,
@@ -85,7 +87,7 @@ class Vertex80():
         print('?'.join((self.cmd_htm,html_line)))
         requests.get('?'.join((self.cmd_htm,html_line)))
 
-    def get_data(self, filename):
+    def get_data(self, filename='none'):
         status = self.get_status()
         if status['datafile']=='Ready for download':
             data = requests.get(self.data_htm)
@@ -94,9 +96,13 @@ class Vertex80():
             print('/'.join((self.url_ftir,data.text[i1+9:i2])))
             data = requests.get('/'.join((self.url_ftir,data.text[i1+9:i2])))
 
-            with open(filename, 'wb') as fid:
-                print (fid)
-                fid.write(data.content)
+            if filename != 'none':
+                with open(filename, 'wb') as fid:
+                    print (fid)
+                    fid.write(data.content)
+            self.spectrumupdated = True
+        else:
+            self.spectrumupdated = False
             
 if __name__=='__main__':
     

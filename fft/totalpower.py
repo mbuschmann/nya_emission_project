@@ -1,7 +1,7 @@
 import sys
-sys.path.append('../../ftsreader')
+sys.path.append('../ftsreader')
 
-from ftsreader import ftsreader
+from ftsreader import *
 import matplotlib.pyplot as plt
 from scipy.constants import h,c,k
 

@@ -13,6 +13,7 @@ class PrologixGPIBEthernet:
                                     socket.SOCK_STREAM,
                                     socket.IPPROTO_TCP)
         self.socket.settimeout(self.timeout)
+        #self.socket.setblocking(False)
 
     def connect(self):
         self.socket.connect((self.host, self.PORT))

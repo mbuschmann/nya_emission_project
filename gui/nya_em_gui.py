@@ -9,25 +9,29 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
+
 scriptpath = os.path.dirname(os.path.abspath(__file__))
-#print(scriptpath)
-#scriptpath = 'C:/Users/ftir/Desktop/nya_emission_project'
-sys.path.append(os.path.join(scriptpath, '..', 'ftsreader'))
+print(scriptpath)
+scriptpath = 'C:/Users/ftir/Desktop/nya_emission_project'
 sys.path.append(os.path.join(scriptpath, 'motorcontrol'))
 sys.path.append(os.path.join(scriptpath, 'blackbody'))
 sys.path.append(os.path.join(scriptpath, 'vertex80'))
 sys.path.append(os.path.join(scriptpath, 'gui'))
-from blackbodymotor_pytmcl import motorctrl
-from sr80 import sr80
-from Vertex80 import Vertex80
-from ftsreader import ftsreader
-from multiprocessing import Process, Manager
+sys.path.append(os.path.join(scriptpath, 'hutch_sensor'))
+sys.path.append(os.path.join(scriptpath, 'fft'))
+sys.path.append(os.path.join(scriptpath, 'ftsreader'))
 from nya_em import NyaEM
+from fft_ftir import fft_ftir
 
 
-class nyaemgui(NyaEM, QtWidgets.QMainWindow):
+
+class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
     def __init__(self):
+        self.blocksr80comm = True
+        self.blockv80comm = False #True
+        self.blockmotorcomm = False
         super().__init__()
+        #
         #
         self.title = 'Ny-Ålesund Emission Measurements'
         self.setWindowTitle(self.title)
@@ -48,37 +52,84 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow):
         self.rseq.timeout.connect(self.run_sequence)
         self.rseq.start()
 
+        self.check_cond = QtCore.QTimer()
+        self.check_cond.setInterval (1000)
+        self.check_cond.timeout.connect(self.check_conditions)
+        self.check_cond.start()
+
+        self.timer_al = QtCore.QTimer()
+        self.timer_al.setInterval (100)
+        self.timer_al.timeout.connect(self._update_actual_line)
+        self.timer_al.start()
 
     def write_sequence(self):
 
+        self.sequence_box.clear()
         for l in self.sequence:
             self.sequence_box.appendPlainText('%s %s'%(l,self.sequence[l]))
+
+    def write_v80parms(self):
+        self.vertex_box.clear()
+        for l in self.v80.meas_params.keys():
+            self.vertex_box.appendPlainText('%s %s'%(l,self.v80.meas_params[l]))
+
+        self.sequence_box.clear()
+        for l in self.sequence:
+            self.sequence_box.appendPlainText('%s %s'%(l,self.sequence[l]))
+
+    def write_conditions(self):
+        self.condition_box.appendPlainText('%s %s' % ('Vertex 80',self.condition_v80))
+        self.condition_box.appendPlainText('%s %s' % ('Hutch open',self.condition_hutch))
+
+
+    def Choose_SequenceFile(self):
+        file = QtWidgets.QFileDialog.getOpenFileName(self._main,'Load Sequence File')
+        self.sequence_file = file[0]
+        if self.sequence_file:
+            self.load_sequence(self.sequence_file)
+            self.write_sequence()
+            self.write_v80parms()
 
     def initMaintab(self):
         self._main.gridlayout = QtWidgets.QGridLayout()
 
         self.sequence_box = QtWidgets.QPlainTextEdit(self._main)
-        #self.sequence.resize(200,200)
+        self.vertex_box = QtWidgets.QPlainTextEdit(self._main)
+        self.condition_box = QtWidgets.QPlainTextEdit(self._main)
+        self.condition_box.resize(32,8)
+        self.actual_line = QtWidgets.QLabel(self._main)
+        self.actual_line.setText('No sequence started')
 
         self.write_sequence()
+        self.write_v80parms()
+        self.write_conditions()
 
-        self._main.gridlayout.addWidget(self.sequence_box,0,1,10,2)
+        self._main.gridlayout.addWidget(self.actual_line,0,1,1,2)
+        self._main.gridlayout.addWidget(self.sequence_box,1,1,5,2)
+        self._main.gridlayout.addWidget(self.vertex_box,6,1,5,2)
+        self._main.gridlayout.addWidget(self.condition_box,11,1,2,2)
+
+
+        loadseq_button = QtWidgets.QPushButton('Load sequence',self._main)
+        loadseq_button.setToolTip("Load Sequence")
+        self._main.gridlayout.addWidget(loadseq_button, 0, 0, 1, 1)
+        loadseq_button.clicked.connect(self.Choose_SequenceFile)
 
         run_button = QtWidgets.QPushButton('Run Sequence', self._main)
         run_button.setToolTip("Run Sequence")
-        self._main.gridlayout.addWidget(run_button,0,0,1,1)
+        self._main.gridlayout.addWidget(run_button,1,0,1,1)
         run_button.clicked.connect(self.start_sequence)
 
         stop_button = QtWidgets.QPushButton('Stop Sequence', self._main)
         stop_button.setToolTip("Stop Sequence immediately")
-        self._main.gridlayout.addWidget(stop_button,1,0,1,1)
-        stop_button.clicked.connect(self.stop_sequence)
+        self._main.gridlayout.addWidget(stop_button,2,0,1,1)
+        stop_button.clicked.connect(self.terminate_sequence)
 
         ##matplotlib integration from:
         ##https://matplotlib.org/gallery/user_interfaces/embedding_in_qt_sgskip.html#sphx-glr-gallery-user-interfaces-embedding-in-qt-sgskip-py
         plot_box = QtWidgets.QGroupBox(self._main)
         plot_box.gridlayout = QtWidgets.QGridLayout()
-        self._main.gridlayout.addWidget(plot_box, 0,4, 5, 4)
+        self._main.gridlayout.addWidget(plot_box, 1,4, 12, 4)
         self.dynamic_canvas = FigureCanvas(Figure(figsize=(6, 5)))
 #        self.addToolBar(QtCore.Qt.BottomToolBarArea, NavigationToolbar(self.dynamic_canvas,plot_box))
         plot_box.nav = NavigationToolbar(self.dynamic_canvas,plot_box)
@@ -103,6 +154,11 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow):
         self._manu.gridlayout.addWidget(stopmeasurebutton, 0, 1, 1, 1, QtCore.Qt.AlignLeft)
         stopmeasurebutton.clicked.connect(self.stop_measure)
         #
+        savemeasurebutton = QtWidgets.QPushButton('Save measurement', self)
+        savemeasurebutton.setToolTip("Save the last measurement")
+        self._manu.gridlayout.addWidget(savemeasurebutton, 0, 2, 1, 1, QtCore.Qt.AlignLeft)
+        savemeasurebutton.clicked.connect(self.save_measurement)
+        #
         self.temptextbox = QtWidgets.QLineEdit(self)
         self.temptextbox.setText('20')
         self._manu.gridlayout.addWidget(self.temptextbox, 1, 0, 1, 1, QtCore.Qt.AlignLeft)
@@ -121,17 +177,32 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow):
         roofbutton = QtWidgets.QPushButton('Point to roof', self)
         roofbutton.setToolTip("Point mirror to roof")
         self._manu.gridlayout.addWidget(roofbutton, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
-        roofbutton.clicked.connect(self.motor.roof)
+        roofbutton.clicked.connect(self.motor_roof)
         #
         sr80button = QtWidgets.QPushButton('Point to SR80', self)
         sr80button.setToolTip("Point mirror to SR80 black body")
         self._manu.gridlayout.addWidget(sr80button, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
-        sr80button.clicked.connect(self.motor.blackbody)
+        sr80button.clicked.connect(self.motor_sr80)
+        #
+        ht1button = QtWidgets.QPushButton('Point to ht1', self)
+        ht1button.setToolTip("Point mirror to self build heat bed black body")
+        self._manu.gridlayout.addWidget(ht1button, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
+        ht1button.clicked.connect(self.motor_ht1)
+        #
+        rtbutton = QtWidgets.QPushButton('Point to rt', self)
+        rtbutton.setToolTip("Point mirror to self built room temperature black body")
+        self._manu.gridlayout.addWidget(rtbutton, 6, 0, 1, 1, QtCore.Qt.AlignLeft)
+        rtbutton.clicked.connect(self.motor_rt)
+        #
+        ir301button = QtWidgets.QPushButton('Point to IR301', self)
+        ir301button.setToolTip("Point mirror to IR301 black body")
+        self._manu.gridlayout.addWidget(ir301button, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
+        ir301button.clicked.connect(self.motor_ir301)
         #
         parkbutton = QtWidgets.QPushButton('Park mirror', self)
         parkbutton.setToolTip("Point mirror to park position")
-        self._manu.gridlayout.addWidget(parkbutton, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
-        parkbutton.clicked.connect(self.motor.park)
+        self._manu.gridlayout.addWidget(parkbutton, 8, 0, 1, 1, QtCore.Qt.AlignLeft)
+        parkbutton.clicked.connect(self.motor_park)
         #
         self.paramtextbox = QtWidgets.QLineEdit(self)
         self.paramtextbox.setText(' | '.join([k + ':' + str(j) for k, j in self.v80.meas_params.items()]))
@@ -220,83 +291,225 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow):
         title.setText('Status box')
         sbox.gridlayout.addWidget(title,0,0,1,1,QtCore.Qt.AlignLeft)
 
+        ### General status and kob box
+
+        statbox = QtWidgets.QGroupBox(sbox)
+        sbox.gridlayout.addWidget(statbox, 1, 0, 1, 1)
+        statbox.gridlayout = QtWidgets.QGridLayout()
+
+        ### Conditions OK?
+        statlabel = QtWidgets.QLabel(statbox)
+        statlabel.setText('Conditions')
+        statbox.gridlayout.addWidget(statlabel, 0, 0, 1, 2, QtCore.Qt.AlignLeft)
+
+        self.conds = QtWidgets.QLabel(statbox)
+        statbox.gridlayout.addWidget(self.conds, 0, 1, 1, 1, QtCore.Qt.AlignLeft)
+        statbox.setLayout(statbox.gridlayout)
+
+        ### Which state is the software in?
+        modlabel = QtWidgets.QLabel(statbox)
+        modlabel.setText('Software Mode')
+        statbox.gridlayout.addWidget(modlabel,1,0,1,1,QtCore.Qt.AlignLeft)
+
+        self.auto_modus = QtWidgets.QLabel(statbox)
+        statbox.gridlayout.addWidget(self.auto_modus, 1, 1, 1, 1, QtCore.Qt.AlignLeft)
+
+        modlabel = QtWidgets.QLabel(statbox)
+        modlabel.setText('Sequence running?')
+        statbox.gridlayout.addWidget(modlabel,2,0,1,1,QtCore.Qt.AlignLeft)
+
+        self.seq_modus = QtWidgets.QLabel(statbox)
+        statbox.gridlayout.addWidget(self.seq_modus, 2, 1, 1, 1, QtCore.Qt.AlignLeft)
+
+        statbox.setLayout(statbox.gridlayout)
+
+
+        ### SR 80 monitor box
+
         tempbox = QtWidgets.QGroupBox(sbox)
-        sbox.gridlayout(tempbox,0,0,1,1)
+        sbox.gridlayout.addWidget(tempbox,2,0,1,1)
 
         tempbox.gridlayout = QtWidgets.QGridLayout()
         templabel = QtWidgets.QLabel(tempbox)
         templabel.setText('SR80 Temperature')
-        sbox.gridlayout.addWidget(templabel,1,0,1,1,QtCore.Qt.AlignLeft)
+        tempbox.gridlayout.addWidget(templabel,1,0,1,2,QtCore.Qt.AlignLeft)
 #        self.sr80_temp = QtWidgets.QLabel(sbox)
 #        sbox.gridlayout.addWidget(self.sr80_temp,1,1,1,1,QtCore.Qt.AlignLeft)
 
-        sr80_l1 = QtWidgets.QLabel(sbox)
+        sr80_l1 = QtWidgets.QLabel(tempbox)
         sr80_l1.setText('Target')
-        sbox.gridlayout.addWidget(sr80_l1, 1, 1, 1, 1, QtCore.Qt.AlignLeft)
+        tempbox.gridlayout.addWidget(sr80_l1, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
 
-        self.sr80_target = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.sr80_target,1,2,1,1,QtCore.Qt.AlignLeft)
+        self.sr80_target = QtWidgets.QLabel(tempbox)
+        tempbox.gridlayout.addWidget(self.sr80_target,2,1,1,1,QtCore.Qt.AlignLeft)
 
-        sr80_l1 = QtWidgets.QLabel(sbox)
+        sr80_l1 = QtWidgets.QLabel(tempbox)
         sr80_l1.setText('Reached')
-        sbox.gridlayout.addWidget(sr80_l1, 2, 1, 1, 1, QtCore.Qt.AlignLeft)
+        tempbox.gridlayout.addWidget(sr80_l1, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
 
-        self.sr80_reached = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.sr80_reached,2,2,1,1,QtCore.Qt.AlignLeft)
+        self.sr80_reached = QtWidgets.QLabel(tempbox)
+        tempbox.gridlayout.addWidget(self.sr80_reached,3,1,1,1,QtCore.Qt.AlignLeft)
 
-        sr80_l1 = QtWidgets.QLabel(sbox)
+        sr80_l1 = QtWidgets.QLabel(tempbox)
         sr80_l1.setText('Stable')
-        sbox.gridlayout.addWidget(sr80_l1, 3, 1, 1, 1, QtCore.Qt.AlignLeft)
+        tempbox.gridlayout.addWidget(sr80_l1, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
 
-        self.sr80_status = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.sr80_status,3,2,1,1,QtCore.Qt.AlignLeft)
+        self.sr80_status = QtWidgets.QLabel(tempbox)
+        tempbox.gridlayout.addWidget(self.sr80_status,4,1,1,1,QtCore.Qt.AlignLeft)
+        tempbox.setLayout(tempbox.gridlayout)
 
+        #### VR80 Monitor box
 
-        ####
+        v80box = QtWidgets.QGroupBox(sbox)
+        sbox.gridlayout.addWidget(v80box,3,0,1,1)
+        v80box.gridlayout = QtWidgets.QGridLayout()
 
-        v80_label = QtWidgets.QLabel(sbox)
+        v80_label = QtWidgets.QLabel(v80box)
         v80_label.setText('Vertex 80')
-        sbox.gridlayout.addWidget(v80_label, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
+        v80box.gridlayout.addWidget(v80_label, 0, 0, 1, 2, QtCore.Qt.AlignLeft)
 
-        v80_l1 = QtWidgets.QLabel(sbox)
+        v80_l1 = QtWidgets.QLabel(v80box)
         v80_l1.setText('Status')
-        sbox.gridlayout.addWidget(v80_l1, 4, 1, 1, 1, QtCore.Qt.AlignLeft)
-        self.v80_status = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.v80_status,4,2,1,1,QtCore.Qt.AlignLeft)
+        v80box.gridlayout.addWidget(v80_l1, 1, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.v80_status = QtWidgets.QLabel(v80box)
+        v80box.gridlayout.addWidget(self.v80_status,1,1,1,1,QtCore.Qt.AlignLeft)
 
-        v80_l4 = QtWidgets.QLabel(sbox)
+        v80_l4 = QtWidgets.QLabel(v80box)
         v80_l4.setText('Scans')
-        sbox.gridlayout.addWidget(v80_l4, 5, 1, 1, 1, QtCore.Qt.AlignLeft)
-        self.v80_scans = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.v80_scans,5,2,1,1,QtCore.Qt.AlignLeft)
+        v80box.gridlayout.addWidget(v80_l4, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.v80_scans = QtWidgets.QLabel(v80box)
+        v80box.gridlayout.addWidget(self.v80_scans,2,1,1,1,QtCore.Qt.AlignLeft)
 
-        v80_l2 = QtWidgets.QLabel(sbox)
+        v80_l2 = QtWidgets.QLabel(v80box)
         v80_l2.setText('Detector')
-        sbox.gridlayout.addWidget(v80_l2, 6, 1, 1, 1, QtCore.Qt.AlignLeft)
-        self.v80_detector = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.v80_detector,6,2,1,1,QtCore.Qt.AlignLeft)
+        v80box.gridlayout.addWidget(v80_l2, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.v80_detector = QtWidgets.QLabel(v80box)
+        v80box.gridlayout.addWidget(self.v80_detector,3,1,1,1,QtCore.Qt.AlignLeft)
 
-        v80_l3 = QtWidgets.QLabel(sbox)
+        v80_l3 = QtWidgets.QLabel(v80box)
         v80_l3.setText('Datafile')
-        sbox.gridlayout.addWidget(v80_l3, 7, 1, 1, 1, QtCore.Qt.AlignLeft)
-        self.v80_datafile = QtWidgets.QLabel(sbox)
-        sbox.gridlayout.addWidget(self.v80_datafile,7,2,1,1,QtCore.Qt.AlignLeft)
+        v80box.gridlayout.addWidget(v80_l3, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.v80_datafile = QtWidgets.QLabel(v80box)
+        v80box.gridlayout.addWidget(self.v80_datafile,4,1,1,1,QtCore.Qt.AlignLeft)
+
+        v80_pka = QtWidgets.QLabel(v80box)
+        v80_pka.setText('Amplitude')
+        v80box.gridlayout.addWidget(v80_pka, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.v80_pka = QtWidgets.QLabel(v80box)
+        v80box.gridlayout.addWidget(self.v80_pka,5,1,1,1,QtCore.Qt.AlignLeft)
+        
+        v80box.setLayout(v80box.gridlayout)
+
+        ### Hutch status
+
+        hutchbox = QtWidgets.QGroupBox(sbox)
+        sbox.gridlayout.addWidget(hutchbox,4,0,1,1)
+        hutchbox.gridlayout = QtWidgets.QGridLayout()
+
+        hutch_label = QtWidgets.QLabel(hutchbox)
+        hutch_label.setText('Hutch')
+        hutchbox.gridlayout.addWidget(hutch_label, 0, 0, 1, 2, QtCore.Qt.AlignLeft)
+        hutchbox.setLayout(hutchbox.gridlayout)
+
+        hutch_l1 = QtWidgets.QLabel(v80box)
+        hutch_l1.setText('Status')
+        hutchbox.gridlayout.addWidget(hutch_l1, 1, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.hutch_status = QtWidgets.QLabel(hutchbox)
+        hutchbox.gridlayout.addWidget(self.hutch_status,1,1,1,1,QtCore.Qt.AlignLeft)
+        self.hutch_remote = QtWidgets.QLabel(hutchbox)
+        hutchbox.gridlayout.addWidget(self.hutch_remote,2,1,1,1,QtCore.Qt.AlignLeft)
 
         sbox.setLayout(sbox.gridlayout)
 
     def Update_StatusBox(self):
-
-        t = self.sr80.get_temperature()
-        t1,t2,st = self.Temperature_reached()
-        self.sr80_target.setText('%.2f'%self.bbtemp)
-        self.sr80_reached.setText('%.2f'%t)
-        self.sr80_status.setText('%s'%st)
+        #t = self.sr80.get_temperature()
+        #t1,t2,st = self.Temperature_reached()
+        #self.sr80_target.setText('%.2f'%self.bbtemp)
+        #self.sr80_reached.setText('%.2f'%t)
+        #self.sr80_status.setText('%s'%st)
 
         v80stat = self.v80.get_status()
+        self.auto_modus.setText(self.actual_job)
+        self.seq_modus.setText('%s'%self.run_seq)
+        if self.conditions_ok:
+            self.conds.setText('OK')
+        else:
+            self.conds.setText('Not OK')
         self.v80_status.setText(v80stat['status'])
         self.v80_detector.setText(v80stat['detector'])
         self.v80_datafile.setText(v80stat['datafile'])
         self.v80_scans.setText('%i/%i'%(v80stat['scans'],v80stat['restscans']))
+        self.v80_pka.setText('%i'%self.pka)
+        self.hutch_status.setText(self.hutchstatus['hutch'])
+        self.hutch_remote.setText(self.hutchstatus['remote'])
+        
+        self.actual_line.setText('%d: %s'%(self.entry, self.sequence[self.entry]))
+
+        #new_file = self.get_newmeasurement()
+        #print ('New file', new_file)
+        #if new_file != None:
+        #    self._update_canvas(new_file)
+        if self.v80.spectrumupdated:
+            try:
+                self.oldfile = self.newfile
+            except Exception as e:
+                print('Plotting old spectrum error:\n\t', e)
+                self.oldfile = None
+            self.newfile = self.get_newmeasurement()
+            print(self.newfile)
+            #
+            if self.newfile != None:
+                self._update_canvas()
+            self.v80.spectrumupdated = False
+        else:
+            pass
+
+    def _update_actual_line(self):
+        self.actual_line.setText('%d: %s' % (self.entry, self.sequence[self.entry]))
+        
+    #def _update_canvas(self, file):
+    #    #print('Plotting ', self.filename, self.new_measurement)
+    #    #if not self.new_measurement:
+    #    #    return();
+    #    self._dynamic_ax1.clear()
+    #    self._dynamic_ax2.clear()
+    #    try:
+    #        spectrum = self.fft(file)
+    #        self._dynamic_ax1.set_title('Latest measurement ' + file)
+    #        self._dynamic_ax1.plot(spectrum['ifg'], 'k-')
+    #        self._dynamic_ax1.figure.canvas.draw()
+    #        self._dynamic_ax2.plot(spectrum['wvn'], np.abs(spectrum['spectrum']), 'k-')
+    #        self._dynamic_ax2.figure.canvas.draw()
+    #    except Exception as e:
+    #        print(e)
+    #        print('%s %s'%('fft failed on ', self.newfile))
+
+    def _update_canvas(self):
+        #print('Plotting ', self.filename, self.new_measurement)
+        #if not self.new_measurement:
+        #    return();
+        self._dynamic_ax1.clear()
+        self._dynamic_ax2.clear()
+        try:
+            try:
+                spectrum_old = self.fft(self.oldfile)
+                c1 = spectrum_old['wvn']<3000
+                self._dynamic_ax1.plot(spectrum_old['ifg'], 'b-', label=self.oldfile)
+                self._dynamic_ax2.plot(spectrum_old['wvn'][c1], np.abs(spectrum_old['spectrum'][c1]), 'b-', label=self.oldfile)
+            except:
+                pass
+            spectrum = self.fft(self.newfile)
+            c2 = spectrum['wvn'] < 3000
+            #self._dynamic_ax1.set_title('Latest measurement ' + file)
+            self._dynamic_ax1.plot(spectrum['ifg'], 'k-', label=self.newfile)
+            self._dynamic_ax1.legend(loc='upper center', fontsize=7)
+            self._dynamic_ax1.figure.canvas.draw()
+            self._dynamic_ax2.plot(spectrum['wvn'][c2], np.abs(spectrum['spectrum'][c2]), 'k-', label=self.newfile)
+            self._dynamic_ax2.legend(loc='upper right', fontsize=7)
+            self._dynamic_ax2.figure.canvas.draw()
+        except Exception as e:
+            print(e)
+            print('%s %s'%('fft failed on ', self.newfile))
 
 if __name__ == '__main__':
 

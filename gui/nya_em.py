@@ -10,28 +10,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests
 scriptpath = os.path.dirname(os.path.abspath(__file__))
-#print(scriptpath)
-#scriptpath = 'C:/Users/ftir/Desktop/nya_emission_project'
-sys.path.append(os.path.join(scriptpath, '..', 'ftsreader'))
+print(scriptpath)
+scriptpath = 'C:/Users/ftir/Desktop/nya_emission_project'
 sys.path.append(os.path.join(scriptpath, 'motorcontrol'))
 sys.path.append(os.path.join(scriptpath, 'blackbody'))
 sys.path.append(os.path.join(scriptpath, 'vertex80'))
 sys.path.append(os.path.join(scriptpath, 'gui'))
+sys.path.append(os.path.join(scriptpath, '..', 'ftsreader'))
 from blackbodymotor_pytmcl import motorctrl
 from sr80 import sr80
 from Vertex80 import Vertex80
+from hutchsensor import hutchsensor
 from ftsreader import ftsreader
-from multiprocessing import Process, Manager
+import logging
 
 class NyaEM():
     def __init__(self, folder='Z:/out/'):
         super().__init__()
-        self.folder = os.path.abspath(folder)
-        self.filename = 'testfilename'
 
+        logfile = dt.datetime.strftime(dt.datetime.now(), 'z:\\log\\%Y%m%d.log')
+        logging.basicConfig(filename=logfile,format='%(asctime)s %(message)s')
+        logging.warning('Starting nya_em.py')
+
+        self.folder = os.path.abspath(folder)
+        self.sequence_file = 'z:\\in\\routine_measurement_new.txt'
         #
         if sys.platform.startswith('win'):
             self.motor_com = "COM3"
+            self.hutch_com = "COM5"
         elif sys.platform.startswith('linux'):
             self.motor_com = "/dev/ttyACM1"
         self.stat_htm = 'http://172.18.0.110/stat.htm'
@@ -40,80 +46,133 @@ class NyaEM():
         self.initinstruments()
         #
         self.act_filename = ''
+        self.last_meas_file = ''
         # Variable used by run_sequence()
         self.entry = 1  # start always at the beginning of the sequence
+
+        self.actual_job = 'idle' # 'run sequence'
         self.run_seq = False # True if a sequence is running
+        self.conditions_ok = False # True if the conditions for measurement are fulfilled.
         self.act_entry = 1 # contains the number of the entry worked on
+        self.pka = -1
+
         self.measurement = False # True if a measurement is under way
         self.measurement_repeat = False
         self.wait = False # True if a wait statement is active
         self.time_continue = dt.datetime.now() # initialize timer variable, this is used in the wait time
+        self.new_measurement = False
 
-        self.sequence = {1: 'reinit_motor',
-                    2: 'folder Z:\\out\\',
-                    3: 'set sr80 temperature 100.0',
-                    4: 'bb point sr80',
-                    5: 'wait T stable',
-                    6: 'measure 10',
-                    7: 'set sr80 temperature 20.0',
-                    8: 'wait T stable',
-                    9: 'measure 10',
-                    10: 'bb point park',
-                    11: 'repeat 3'}
+        self.hutchstatus = {}
 
-        self.sequence = {1: 'set folder Z:\\out\\',
-                        2: 'reinit motor',
-                        3: 'set motor roof',
-                        4: 'measure start',
-                        5: 'set sr80 25.0',
-                        6: 'wait SR80 stable',
-                        7: 'measure stop',
-                        8: 'set motor sr80',
-                        9: 'measure start',
-                        10: 'wait time 5 min',
-                        11: 'measure stop',
-                        12: 'set sr80 20.0',
-                        13: 'loop 3'}
+        # Conditions for measurement
+        self.condition_hutch = False
+        self.condition_v80 = True
 
-        self.sequence = {1: 'reinit motor',
-                         2: 'set motor park',
-                         3: 'set sr80 20.0',
-                         4: 'wait sr80 stable',
-                         5: 'set motor sr80',
-                         6: 'measure start',
-                         7: 'measure repeat',
-                         8: 'wait time 10',
-                         9: 'measure stop',
-                         10: 'set sr80 100.0',
-                         11: 'set motor roof',
-                         12: 'measure start',
-                         13: 'measure repeat',
-                         14: 'wait sr80 stable',
-                         15: 'measure stop',
-                         16: 'set motor sr80',
-                         17: 'measure start',
-                         18: 'measure repeat',
-                         19: 'wait time 10',
-                         20: 'measure stop',
-                         21: 'set sr80 20.0',
-                         22: 'set motor roof',
-                         23: 'measure start',
-                         24: 'measure repeat',
-                         25: 'wait sr80 stable',
-                         26: 'measure stop',
-                         27: 'loop 5'}
+
+        self.load_sequence(self.sequence_file)
+
+
+    def load_sequence(self, file):
+        with open(file, 'r') as fid:
+            read_seq = False
+            read_con = False
+            read_v80 = False
+            nr = 1
+            self.sequence = {}
+            for l in fid:
+                if l.strip == '':
+                    continue
+                if l.strip() == 'sequence':
+                    read_seq = True
+                    read_con = False
+                    read_v80 = False
+                    nr = 1
+                    continue
+                elif l.strip() == 'v80 parms':
+                    read_seq = False
+                    read_con = False
+                    read_v80 = True
+                    continue
+                elif l.strip() == 'meas conditions':
+                    read_seq = False
+                    read_con = True
+                    read_v80 = False
+                    nr = 1
+                    continue
+                if read_seq:
+                    self.sequence[nr] = l.strip()
+                    nr += 1
+                if read_v80:
+                    ll = l.split()
+                    if len(ll) == 0:
+                        continue
+                    self.v80.meas_params[ll[0]] = ll[1]
+                if read_con:
+                    self.condition_hutch = True
+                    self.condition_v80 = True
+
+    def check_conditions(self):
+        # more conditions to be added at some stage
+        hutchstatus = self.hutch.hutchstatus()
+        if type(hutchstatus)==type(None):
+            print('hutchstatus type NONE !')
+            self.hutchstatus['hutch'] = 'unknown'
+            self.hutchstatus['remote'] = 'unknown'
+        elif len(hutchstatus) == 0:
+            self.hutchstatus['hutch'] = 'unknown'
+            self.hutchstatus['remote'] = 'unknown'
+        else:
+            if 'hutch' in hutchstatus and hutchstatus['hutch'] == '1':
+                self.hutchstatus['hutch'] = 'open'
+            else:
+                self.hutchstatus['hutch'] = 'close'
+            if 'remote' in hutchstatus.keys() and hutchstatus['remote'] == '1':
+                self.hutchstatus['remote'] = 'remote'
+            else:
+                self.hutchstatus['remote'] = 'local'
+
+        old = self.conditions_ok
+        if len(self.hutchstatus) == 0:
+            #return
+            self.conditions_ok = True
+        if  self.hutchstatus['hutch'].strip() == 'open':
+            self.conditions_ok = True
+        elif self.hutchstatus['hutch'].strip() == 'unknown':
+            self.conditions_ok = True
+        else:
+            self.conditions_ok = False
+        if old != self.conditions_ok:
+            logging.warning('Condition changed from %s to %s'%(old,self.conditions_ok))
 
     def start_sequence(self):
-        self.run_seq = True
-        self.entry = 1 # start sequence at position 1
+        self.actual_job = 'run sequence'
+        logging.warning('Set Job to run sequence')
 
     def stop_sequence(self):
         self.run_seq = False
-        self.motor.park()
-        self.setsr80temp(20.0)
+        #self.motor_park()
+        #self.setsr80temp(20.0)
+        logging.warning('Sequence stopped')
+
+    def terminate_sequence(self):
+        self.stop_measure()
+        self.actual_job = 'idle'
+        self.run_seq = False
+        logging.warning('Set Job to run idle')
 
     def run_sequence(self):
-        if not self.run_seq:
+        if not (self.actual_job == 'run sequence'):
+            return()
+        elif self.run_seq and not self.conditions_ok:
+            print('stop sequence')
+            self.v80.get_data() # do not save data, because they are very likely not ok
+            self.stop_sequence()
+            return()
+        elif self.actual_job == 'run sequence' and self.conditions_ok and not self.run_seq:
+            self.entry = 1
+            self.run_seq = True
+            self.v80.get_data() # Remove data from instrument if they exist
+        elif not self.run_seq or not self.conditions_ok:
             return()
         nr_entry = len(self.sequence)
         unknown = False # unknown should never become true
@@ -133,16 +192,18 @@ class NyaEM():
                     unknown = True
             elif command[0] == 'set':
                 if command[1] == 'sr80':
-                    self.setsr80temp(float(command[2]))
+                    logging.warning('Ignoring: set sr80 temp to '+command[2])
+                    #self.setsr80temp(float(command[2]))
                 if command[1] == 'motor':
-                    if command[2] == 'sr80':
-                        self.motor.blackbody()
-                    elif command[2] == 'roof':
-                        self.motor.roof()
-                    elif command[2] == 'park':
-                        self.motor.park()
-                    else:
-                        unknown = True
+                    #if command[2] == 'sr80':
+                    #    self.motor_sr80()
+                    #elif command[2] == 'roof':
+                    #    self.motor_roof()
+                    #elif command[2] == 'park':
+                    #    self.motor_park()
+                    #else:
+                    #    unknown = True
+                    self.motor.movetoposition(command[2])
             elif command[0] == 'measure':
                 if command[1] == 'start':
                     self.start_measure()
@@ -158,14 +219,16 @@ class NyaEM():
                     self.measurement_repeat = True
             elif command[0] == 'wait':
                 if command[1] == 'sr80':
-                    # wait for sr80 to stabilize
-                    # self.SR80_stable is set by
-                    self.Temperature_reached()
-                    if not self.SR80_stable:
-                        self.entry -= 1
-                        break
-                    else:
-                        pass
+                    logging.warning('Ignoring: wait sr80 temp to stabilize')
+                    pass
+                    ## wait for sr80 to stabilize
+                    ## self.SR80_stable is set by
+                    #self.Temperature_reached()
+                    #if not self.SR80_stable:
+                    #    self.entry -= 1
+                    #    break
+                    #else:
+                    #    pass
                 elif command[1] == 'time':
                     # Set a timer, goes on only after the time is more than self.time_continue
                     print(self.time_continue)
@@ -190,48 +253,76 @@ class NyaEM():
 
     def start_measure(self):
         self.measurement = True
-        if self.motor.position == 'roof':
-            fname = 'nyem'+dt.datetime.now().strftime('%Y%m%d%H%M%S')+'_up.000'
-            self.v80.set_sampleform('UP')
-            self.v80.set_samplename('HUTCH UNKNOWN')
-        elif self.motor.position == 'bb':
-            fname = 'nyem'+dt.datetime.now().strftime('%Y%m%d%H%M%S')+'_bb_%3.2f.000'%(self.bbtemp)
-            self.v80.set_sampleform('SR80')
-            self.v80.set_samplename('%.5f +/- %.5f'%(self.bbtemp,selfbbstdv))
-        else:
-            fname = 'nyem' + dt.datetime.now().strftime('%Y%m%d%H%M%S') + '_xx.000'
-
+        p = self.motor.position
+        fname = 'nyem'+dt.datetime.now().strftime('%Y%m%d%H%M%S_')+p+'.000'
+        self.v80.set_sampleform(p)
+        self.v80.set_samplename(p)
         path = os.path.join(self.folder, dt.datetime.now().strftime('%Y%m%d'))
         if not os.path.exists(path):
             os.mkdir(path)
         self.act_filename = os.path.join(path,fname)
         self.v80.measure()
+#        self.new_measurement = False
 
     def repeat_measure(self):
         stat = self.v80.get_status()
         if stat['status'] == 'IDL':
-            self.save_measurement()
+            self.save_measurement(self.act_filename)
             self.start_measure()
 
     def stop_measure(self):
         self.measurement = False
-        self.save_measurement()
+        self.save_measurement(self.act_filename)
         pass
 
-    def save_measurement(self):
-        print(self.act_filename)
-        self.v80.get_data(self.act_filename)
+    def save_measurement(self,file='Z:\out\tmp\tempspectrum.0'):
+        if (self.actual_job == 'run sequence'):
+            self.v80.get_data(file)
+            self.last_meas_file = file
+            self.new_measurement = True
+            try:
+                new_meas = ftsreader(self.last_meas_file)
+                self.pka = new_meas.header['Instrument Parameters']['PKA']
+            except Exception as e:
+                print('Exception in ftsreader call\n',e)
+                self.pka = -1
+
+    def get_newmeasurement(self):
+        if self.new_measurement:
+            return(self.last_meas_file)
+        else:
+            return(None)
+
+    def motor_park(self):
+        self.motor.movetoposition('park')
+
+    def motor_roof(self):
+        self.motor.movetoposition('roof')
+
+    def motor_ht1(self):
+        self.motor.movetoposition('ht1')
+
+    def motor_rt(self):
+        self.motor.movetoposition('rt')
+
+    def motor_ir301(self):
+        self.motor.movetoposition('ir301')
+
+    def motor_sr80(self):
+        self.motor.movetoposition('sr80')
 
     def initinstruments(self):
-        self.sr80 = sr80()
-        self.motor = motorctrl(self.motor_com)
+        self.sr80 = sr80(blockcomm=self.blocksr80comm)
+        self.motor = motorctrl(self.motor_com, blockcomm = self.blockmotorcomm)
         self.v80 = Vertex80()
         self.maxnumber = 1
-        t = -999
-        while  t == -999:
-            t = self.sr80.get_temperature()
-            time.sleep(1)
-        self.bbtemp = t
+        #t = -999
+        #while  t == -999:
+        #    t = self.sr80.get_temperature()
+        #    time.sleep(1)
+        #self.bbtemp = t
+        self.hutch = hutchsensor(self.hutch_com)
+
 
     def setv80param(self):
         l = self.paramtextbox.text().split('|')
@@ -252,7 +343,6 @@ class NyaEM():
         print ('setsr80temp',self.bbtemp)
         self.sr80.set_temperature(self.bbtemp)
 
-
     def reinitmotor(self, item):
         self.motor.init_motor()
 
@@ -266,52 +356,12 @@ class NyaEM():
         else:
             self.checkbox = False
 
-    def get_ifg(self):
-
-        self.last_ifg_fname = self.act_filename
-        try:
-            self.lastifg = ftsreader(self.last_ifg_fname, getspc=True, getifg=True)
-        except Exception as e:
-            print(e)
-            self.lastifg = 0
-
-#    def _update_canvas(self):
-#        #print('Plotting ', self.filename)
-#        self._dynamic_ax1.clear()
-#        self._dynamic_ax2.clear()
-#        self.get_ifg()
-#        self._dynamic_ax1.set_title('Latest measurement ' + self.act_filename)
-#        try:
-#            sx = self.lastifg.spcwvn
-#            sy = self.lastifg.spc
-#            spc = True
-#        except:
-#            spc = False
-#        try:
-#            iy = self.lastifg.ifg
-#            ifg = True
-#        except:
-#            ifg = False
-#        if ifg:
-#            self._dynamic_ax1.plot(iy, 'k-')
-#            self._dynamic_ax1.figure.canvas.draw()
-#        else:
-#            print(self.last_ifg_fname, ' --> no Interferogram found')
-#        if spc:
-#            self._dynamic_ax2.plot(sx, sy, 'k-')
-#            self._dynamic_ax2.figure.canvas.draw()
-#        else:
-#            print(self.last_ifg_fname, ' --> no Spectrum found')
-
-#    def updateprogressbar(self, s):
-#        self.statusBar().showMessage(s)
-
-
-
     def Temperature_reached(self):
-        t = self.sr80.get_stability()
-        if np.abs(t[0] - self.bbtemp) < 0.1 and np.abs(t[1] < 0.1) :
-            self.SR80_stable = True
-        else:
-            self.SR80_stable = False
-        return(t[0], t[1], self.SR80_stable)
+         pass
+    #    t = self.sr80.get_stability()
+    #    self.bbstdv = t[1]
+    #    if np.abs(t[0] - self.bbtemp) < 0.1 and np.abs(t[1] < 0.1) :
+    #        self.SR80_stable = True
+    #    else:
+    #        self.SR80_stable = False
+    #    return(t[0], t[1], self.SR80_stable)

@@ -2,7 +2,7 @@ import sys
 sys.path.append('../ftsreader')
 
 from fft_ftir import fft_ftir
-from ftsreader import ftsreader
+from ftsreader import *
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import h,c,k
@@ -42,3 +42,4 @@ plt.plot(wvn_i,np.real(calib_i))
 f.show()
 
 input()
+

@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../../ftsreader/')
+sys.path.append('../ftsreader')
 from ftsreader import ftsreader
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
@@ -30,8 +30,8 @@ class fft_ftir():
 
         return(wvn, ifg_long, spectrum)
 
-    def fft(self, fts_file):
-        meas  = ftsreader(fts_file, getifg=True,getspc=True)
+    def fft(self, op_file):
+        meas  = ftsreader(op_file,getifg=True,getspc=True)
         spectrum = {};
         aqm = meas.header['Acquisition Parameters']['AQM']
         bwd = False
@@ -70,13 +70,13 @@ class fft_ftir():
 if __name__ == '__main__':
 
     s = fft_ftir()
-    fts_file = input()
-    meas  = ftsreader(fts_file, getifg=True, getspc=True)
-#    spectrum = s.fft('/home/mathias/projects/Vertex80_Emi/Totalpower_Atmosphere/BBSR80_100.0')
-    spectrum = s.fft(fts_file)
+    op_file = input()
+    meas  = ftsreader(op_file,getifg=True,getspc=True)
+    #spectrum = s.fft('/home/mathias/projects/Vertex80_Emi/Totalpower_Atmosphere/BBSR80_100.0')
+    spectrum = s.fft(op_file)
     f = plt.figure()
-    plt.plot(spectrum['wvn_fwd'], np.abs(spectrum['spectrum_fwd']),'b')
-    plt.plot(spectrum['wvn_bwd'], np.abs(spectrum['spectrum_bwd']),'g')
+    plt.plot(spectrum['wvn_fwd'],np.abs(spectrum['spectrum_fwd']),'b')
+    plt.plot(spectrum['wvn_bwd'],np.abs(spectrum['spectrum_bwd']),'g')
     plt.plot(spectrum['wvn'], np.abs(spectrum['spectrum']),'k')
     f.show()
 

@@ -143,3 +143,6 @@ mirrorstrips();
 translate([-10,0,0]) mirrorplate();
 //	projection(cut=false) rotate([90,90,0]) 
 motormount();
+
+translate([80,0,-35])
+#cube([10,60,70], center=true);
