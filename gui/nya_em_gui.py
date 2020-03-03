@@ -12,7 +12,7 @@ import requests
 
 scriptpath = os.path.dirname(os.path.abspath(__file__))
 print(scriptpath)
-scriptpath = 'C:/Users/ftir/Desktop/nya_emission_project'
+scriptpath = 'C:/Users/ftir/nya_emission_project'
 sys.path.append(os.path.join(scriptpath, 'motorcontrol'))
 sys.path.append(os.path.join(scriptpath, 'blackbody'))
 sys.path.append(os.path.join(scriptpath, 'vertex80'))

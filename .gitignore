@@ -1,0 +1,8 @@
+*.o
+*.pyc
+.gitconfig
+__pycache__
+.idea
+gui/ftsreader.py
+output
+lin_test

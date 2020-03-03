@@ -11,7 +11,7 @@ import numpy as np
 import requests
 scriptpath = os.path.dirname(os.path.abspath(__file__))
 print(scriptpath)
-scriptpath = 'C:/Users/ftir/Desktop/nya_emission_project'
+scriptpath = 'C:/Users/ftir/nya_emission_project'
 sys.path.append(os.path.join(scriptpath, 'motorcontrol'))
 sys.path.append(os.path.join(scriptpath, 'blackbody'))
 sys.path.append(os.path.join(scriptpath, 'vertex80'))
@@ -33,7 +33,7 @@ class NyaEM():
         logging.warning('Starting nya_em.py')
 
         self.folder = os.path.abspath(folder)
-        self.sequence_file = 'z:\\in\\routine_measurement_new.txt'
+        self.sequence_file = 'z:\\in\\routine_measurement.txt'
         #
         if sys.platform.startswith('win'):
             self.motor_com = "COM3"
@@ -132,18 +132,20 @@ class NyaEM():
                 self.hutchstatus['remote'] = 'local'
 
         old = self.conditions_ok
-        if len(self.hutchstatus) == 0:
-            #return
-            self.conditions_ok = True
-        if  self.hutchstatus['hutch'].strip() == 'open':
-            self.conditions_ok = True
-        elif self.hutchstatus['hutch'].strip() == 'unknown':
-            self.conditions_ok = True
+        if self.condition_hutch:
+            if len(self.hutchstatus) == 0:
+                #return
+                self.conditions_ok = True
+            if  self.hutchstatus['hutch'].strip() == 'open':
+                self.conditions_ok = True
+            elif self.hutchstatus['hutch'].strip() == 'unknown':
+                self.conditions_ok = True
+            else:
+                self.conditions_ok = False
+            if old != self.conditions_ok:
+                logging.warning('Condition changed from %s to %s'%(old,self.conditions_ok))
         else:
-            self.conditions_ok = False
-        if old != self.conditions_ok:
-            logging.warning('Condition changed from %s to %s'%(old,self.conditions_ok))
-
+            self.conditions_ok = True
     def start_sequence(self):
         self.actual_job = 'run sequence'
         logging.warning('Set Job to run sequence')
