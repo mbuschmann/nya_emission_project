@@ -3,12 +3,12 @@ import numpy as np
 
 class sr800:
 
-    def __init__(self):
+    def __init__(self, addr='172.18.0.140'):
         self.header = [0xAA,0x01]
         self.code_sp = [0x06]  # Service code send parameter
         self.size = [0x00,0x0A]
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.connect(('192.168.17.116',5200))
+        self.sock.connect((addr,5200))
 
     def __del__(self):
         self.sock.close()
@@ -29,7 +29,7 @@ class sr800:
         self.param_size = [0x00,0x04] # Parameter size
         self.size = [0x00,0x0A]
         
-        st11 = self.header
+        st11 = self.header.copy()
         st11.extend(self.size)
         st11.extend(self.code_sp)
         st11.extend(self.code_st)
@@ -38,7 +38,7 @@ class sr800:
         cs = self.calc_checksum(st11)
         st11.extend(cs)
         st1 = bytes(st11)
-    
+        print(T, st11)
         #st1 = b'\xAA\x01\x00\x0A\x06\x07\xF1\x00\x04\x42\xC8\x00\x00\x3F'
         self.sock.send(st1)
 

@@ -144,8 +144,8 @@ class motorctrl():
 
     def __init__(self, comport, blockcomm=False):
         self.blockmotorcomm = blockcomm
-        self.targets = ['lim', 'park', 'sr80', 'ht1', 'roof', 'rt', 'ir301']
-        self.angles = [0.0, -2.0, -72.0, -118.0, -163.5, -215.5, -256.5]
+        self.targets = ['lim', 'park', 'sr80', 'ht1', 'roof', 'ir301', 'sr800', 'rt'] #, 'rt'
+        self.angles = [0.0, -2.0, -72.0, -118.0, -163.5, -254.0, -230.6, -298.0] #, -215.5
         self.comport = comport
         self.MODULE_ADDRESS = 1
         if not self.blockmotorcomm:

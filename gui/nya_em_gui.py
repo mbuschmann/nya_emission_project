@@ -27,7 +27,7 @@ from fft_ftir import fft_ftir
 
 class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
     def __init__(self):
-        self.blocksr80comm = True
+        self.blocksr80comm = False
         self.blockv80comm = False #True
         self.blockmotorcomm = False
         super().__init__()
@@ -184,25 +184,51 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._manu.gridlayout.addWidget(sr80button, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
         sr80button.clicked.connect(self.motor_sr80)
         #
+        sr800button = QtWidgets.QPushButton('Point to SR880', self)
+        sr800button.setToolTip("Point mirror to SR800 black body")
+        self._manu.gridlayout.addWidget(sr800button, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
+        sr800button.clicked.connect(self.motor_sr800)
+        #
         ht1button = QtWidgets.QPushButton('Point to ht1', self)
         ht1button.setToolTip("Point mirror to self build heat bed black body")
-        self._manu.gridlayout.addWidget(ht1button, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(ht1button, 6, 0, 1, 1, QtCore.Qt.AlignLeft)
         ht1button.clicked.connect(self.motor_ht1)
         #
         rtbutton = QtWidgets.QPushButton('Point to rt', self)
         rtbutton.setToolTip("Point mirror to self built room temperature black body")
-        self._manu.gridlayout.addWidget(rtbutton, 6, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(rtbutton, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
         rtbutton.clicked.connect(self.motor_rt)
         #
         ir301button = QtWidgets.QPushButton('Point to IR301', self)
         ir301button.setToolTip("Point mirror to IR301 black body")
-        self._manu.gridlayout.addWidget(ir301button, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(ir301button, 8, 0, 1, 1, QtCore.Qt.AlignLeft)
         ir301button.clicked.connect(self.motor_ir301)
         #
         parkbutton = QtWidgets.QPushButton('Park mirror', self)
         parkbutton.setToolTip("Point mirror to park position")
-        self._manu.gridlayout.addWidget(parkbutton, 8, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(parkbutton, 9, 0, 1, 1, QtCore.Qt.AlignLeft)
         parkbutton.clicked.connect(self.motor_park)
+        #
+        sr800onbutton = QtWidgets.QPushButton('Switch SR800 on', self)
+        sr800onbutton.setToolTip("Switch SR800 on")
+        self._manu.gridlayout.addWidget(sr800onbutton, 10, 0, 1, 1, QtCore.Qt.AlignLeft)
+        sr800onbutton.clicked.connect(self.switch_sr800_on)
+        #
+        sr800offbutton = QtWidgets.QPushButton('Switch SR800 off', self)
+        sr800offbutton.setToolTip("Switch SR800 off")
+        self._manu.gridlayout.addWidget(sr800offbutton, 11, 0, 1, 1, QtCore.Qt.AlignLeft)
+        sr800offbutton.clicked.connect(self.switch_sr800_off)
+        #
+        #
+        ir301onbutton = QtWidgets.QPushButton('Switch IR301 on', self)
+        ir301onbutton.setToolTip("Switch IR301 on")
+        self._manu.gridlayout.addWidget(ir301onbutton, 12, 0, 1, 1, QtCore.Qt.AlignLeft)
+        ir301onbutton.clicked.connect(self.switch_ir301_on)
+        #
+        ir301offbutton = QtWidgets.QPushButton('Switch IR301 off', self)
+        ir301offbutton.setToolTip("Switch IR301 off")
+        self._manu.gridlayout.addWidget(ir301offbutton, 13, 0, 1, 1, QtCore.Qt.AlignLeft)
+        ir301offbutton.clicked.connect(self.switch_ir301_off)
         #
         self.paramtextbox = QtWidgets.QLineEdit(self)
         self.paramtextbox.setText(' | '.join([k + ':' + str(j) for k, j in self.v80.meas_params.items()]))
