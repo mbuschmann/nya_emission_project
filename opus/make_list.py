@@ -103,6 +103,7 @@ def make_list(path,ldate,tpath=''):
         fid.write('{:<100}{:<50}{:<50}{:<50}{:<50}{:<10}{:<10}\n'.format(sep.join((tpath,'Emission',ldate)),hot[ih][0],cold[ic][0], at[0], final, float(hot[ih][2]) + 273.15, float(cold[ic][2]) + 273.15))
 
     fid.close()
+    return(lfile)
 
 if __name__ == '__main__':
 
@@ -115,6 +116,6 @@ if __name__ == '__main__':
     elif len(sys.argv) == 3:
         make_list(path, ldate)
     else:
-        print('Call as python3 make_list.py path date(YYYYMMDD) [target path]')
+        print('Call as python3 make_list.py path date(YYYYMMDD) [path in other system]')
     
 

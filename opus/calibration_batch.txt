@@ -1,21 +1,26 @@
-from opusPipe import OPUSpipe
+#! /usr/bin/python2.7
 
+from opusPipe import OPUSpipe
+from datetime import datatime, timedelta
 # aus script_boulder
 execfile('ckOpus.py')
 op = OpusPipe()
 op.connect()
 
+aktdate = datetime.strftime(datetime.today() - timedelta(days=2),'%Y%m%d')
 
+execfile('make_list.py')
+spec_path = 'x:\Vertex80_NyAlesund\Emission\'
+aktdate = '20200511'
+ifile = makelist(spec_path, aktdate)
 
-for ifile in ifiles:
+inp_file = "Y:\\\\Vertex80_NyAlesund\{}".format(ifile)
+out_dir =  "Y:\\\\Vertex80_NyAlesund\Emission\"
+mtxfile = r"z:\projects\nya_emission\opus\hot_cold_from_list.xpm"
+cmdstring = "START MACRO {} 2\n".format(mtxfile)
+argstring = "{0:}\n{1:}\n".format(ind_file, out_dir)
 
-	inp_file = "Y:\\\\Vertex80_NyAlesund\{}".format(ifile)
-	out_dir =  "Y:\\\\Vertex80_NyAlesund\Emission\"
-	argstring = "{0:}\n{1:}\n".format(ind_file, out_dir)
-	mtxfile = r"z:\projects\nya_emission\opus\hot_cold_from_list.xpm"
-	cmdstring = "START MACRO {} 2\n".format(mtxfile)
-
-	op.writePIPE(cmdstring)
-	op.readPIPE()
-	op.writePIPE(argstring)
-	op.readPIPE()
+op.writePIPE(cmdstring)
+op.readPIPE()
+op.writePIPE(argstring)
+op.readPIPE()
