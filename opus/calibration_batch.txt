@@ -5,7 +5,7 @@ execfile('ckOpus.py')
 op = OpusPipe()
 op.connect()
 
-ifiles = ['20200510','20200511',]
+
 
 for ifile in ifiles:
 
