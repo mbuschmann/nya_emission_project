@@ -29,8 +29,11 @@ def make_list(path,ldate,tpath=''):
     shot = 'sr800_110.0'
     scold2 = 'sr800_19.9'
     shot2 = 'sr800_109.9'
-
-    files = os.listdir(os.path.join(path,'Emission',ldate))
+    spec_dir = os.path.join(path,'Emission',ldate)
+    if not os.path.exists(spec_dir):
+        print('Sirectory {} does not exist'.format(spec_dir))
+        return(-1)
+    files = os.listdir(spec_dir)
     lfile = '{}{}'.format(ldate,'.list')
     
     fid = open(lfile,'w')
@@ -105,17 +108,17 @@ def make_list(path,ldate,tpath=''):
     fid.close()
     return(lfile)
 
-if __name__ == '__main__':
-
+#if __name__ == '__main__':
+#
     #path = '/home/mathias/Vertex80_spectren/20190829'
 
-    path = sys.argv[1]
-    ldate = sys.argv[2]
-    if len(sys.argv) == 4:
-        make_list(path, ldate, sys.argv[3])
-    elif len(sys.argv) == 3:
-        make_list(path, ldate)
-    else:
-        print('Call as python3 make_list.py path date(YYYYMMDD) [path in other system]')
+#    path = sys.argv[1]
+#    ldate = sys.argv[2]
+#    if len(sys.argv) == 4:
+#        make_list(path, ldate, sys.argv[3])
+#    elif len(sys.argv) == 3:
+#        make_list(path, ldate)
+#    else:
+#        print('Call as python3 make_list.py path date(YYYYMMDD) [path in other system]')
     
 
