@@ -73,7 +73,7 @@ class sr800:
 
 if __name__ == '__main__':
     s8 = sr800()
-    s8.set_temperature(25.0)
+    #s8.set_temperature(25.0)
     print(s8.get_temperature())
     print(s8.get_stability())
 

@@ -35,7 +35,8 @@ class NyaEM():
         logging.warning('Starting nya_em.py')
 
         self.preset_temps = {'ir301': 120.0,
-                             'ht1': 90.0}
+                             'ht1': 90.0,
+                             'lim':0.0}
 
         self.folder = os.path.abspath(folder)
         self.sequence_file = 'z:\\in\\routine_measurement.txt'
@@ -175,6 +176,7 @@ class NyaEM():
             print('stop sequence')
             self.v80.get_data() # do not save data, because they are very likely not ok
             self.stop_sequence()
+            #self.setsr800temp('23.0')
             return()
         elif self.actual_job == 'run sequence' and self.conditions_ok and not self.run_seq:
             self.entry = 1
@@ -204,6 +206,7 @@ class NyaEM():
                     #self.setsr80temp(float(command[2]))
                 if command[1] == 'sr800':
                     self.setsr800temp(command[2])
+                    self.sr800_target_temp = command[2]
                 if command[1] == 'motor':
                     #if command[2] == 'sr80':
                     #    self.motor_sr80()
@@ -245,6 +248,7 @@ class NyaEM():
                     #self.Temperature_reached()
                     print('waiting for sr800')
                     if not self.sr800.get_stability():
+                        print('Waiting for SR800 to reach', self.sr800_target_temp, ' : ', self.sr800.get_temperature())
                         time.sleep(5)
                         self.entry -= 1
                         break
@@ -283,8 +287,8 @@ class NyaEM():
             t = ''
         elif p=='roof':
             t = ''
-        elif p=='ht1':
-            t = 'seelog'
+        #elif p=='ht1':
+        #    t = 'seelog'
         else:
             t = '_%03.3f'%(self.preset_temps[p])
         fname = 'nyem'+dt.datetime.now().strftime('%Y%m%d%H%M%S_')+p+t+'.000'
@@ -348,9 +352,11 @@ class NyaEM():
         self.motor.movetoposition('sr800')
 
     def switch_sr800_on(self):
+        print('Switching SR800 on')
         self.brennenstuhl.switch_on('1')
 
     def switch_sr800_off(self):
+        print('Switching SR800 off')
         self.brennenstuhl.switch_off('1')
 
     def switch_ir301_on(self):
@@ -387,6 +393,16 @@ class NyaEM():
                 self.v80.meas_params[i] = int(j.strip())
         for i, j in self.v80.meas_params.items():
             print(i,':',j)
+
+    def setht1param(self):
+        l = self.ht1textbox.text().strip()
+        self.preset_temps['ht1'] = float(l)
+        print('set ht1 temp preset to :',l)
+
+    def setir301param(self):
+        l = self.ir301textbox.text().strip()
+        self.preset_temps['ir301'] = float(l)
+        print('set ir301 temp preset to :',l)
 
     def setsr800temp(self, new_T):
         self.sr800newT = new_T
