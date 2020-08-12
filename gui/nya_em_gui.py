@@ -125,6 +125,27 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._main.gridlayout.addWidget(stop_button,2,0,1,1)
         stop_button.clicked.connect(self.terminate_sequence)
 
+        stop_button = QtWidgets.QPushButton('Stop Sequence', self._main)
+        stop_button.setToolTip("Stop Sequence immediately")
+        self._main.gridlayout.addWidget(stop_button, 2, 0, 1, 1)
+        stop_button.clicked.connect(self.terminate_sequence)
+
+        self.ht1textbox = QtWidgets.QLineEdit(self)
+        self.ht1textbox.setText('%3i'%self.preset_temps['ht1'])
+        self._main.gridlayout.addWidget(self.ht1textbox, 4, 0, 1, 1)
+        ht1tempbutton = QtWidgets.QPushButton('HT1 temp:', self)
+        ht1tempbutton.setToolTip("Enter the current HT1 preset temperature")
+        self._main.gridlayout.addWidget(ht1tempbutton, 3, 0, 1, 1, QtCore.Qt.AlignRight)
+        ht1tempbutton.clicked.connect(self.setht1param)
+
+        self.ir301textbox = QtWidgets.QLineEdit(self)
+        self.ir301textbox.setText('%3.1f'%self.preset_temps['ir301'])
+        self._main.gridlayout.addWidget(self.ir301textbox, 6, 0, 1, 1)
+        ir301tempbutton = QtWidgets.QPushButton('IR301 temp:', self)
+        ir301tempbutton.setToolTip("Enter the current IR301 preset temperature")
+        self._main.gridlayout.addWidget(ir301tempbutton, 5, 0, 1, 1, QtCore.Qt.AlignRight)
+        ir301tempbutton.clicked.connect(self.setir301param)
+
         ##matplotlib integration from:
         ##https://matplotlib.org/gallery/user_interfaces/embedding_in_qt_sgskip.html#sphx-glr-gallery-user-interfaces-embedding-in-qt-sgskip-py
         plot_box = QtWidgets.QGroupBox(self._main)
@@ -159,75 +180,81 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._manu.gridlayout.addWidget(savemeasurebutton, 0, 2, 1, 1, QtCore.Qt.AlignLeft)
         savemeasurebutton.clicked.connect(self.save_measurement)
         #
-        self.temptextbox = QtWidgets.QLineEdit(self)
-        self.temptextbox.setText('20')
-        self._manu.gridlayout.addWidget(self.temptextbox, 1, 0, 1, 1, QtCore.Qt.AlignLeft)
-        tempbutton = QtWidgets.QPushButton('Set SR80 temperature', self)
-        self._manu.gridlayout.addWidget(tempbutton, 1, 1, 1, 1, QtCore.Qt.AlignLeft)
-        def set_temp():
-            self.setsr80temp(float(self.temptextbox.text()))
-        tempbutton.clicked.connect(set_temp)
+        self.setsr80textbox = QtWidgets.QLineEdit(self)
+        self.setsr80textbox.setText('20')
+        self._manu.gridlayout.addWidget(self.setsr80textbox, 1, 0, 1, 1, QtCore.Qt.AlignLeft)
+        setsr80button = QtWidgets.QPushButton('Set SR80 temperature', self)
+        self._manu.gridlayout.addWidget(setsr80button, 1, 1, 1, 1, QtCore.Qt.AlignLeft)
+        setsr80button.clicked.connect(self.set_sr80temp)
         #
+        self.setsr800textbox = QtWidgets.QLineEdit(self)
+        self.setsr800textbox.setText('20')
+        self._manu.gridlayout.addWidget(self.setsr800textbox, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
+        setsr800button = QtWidgets.QPushButton('Set SR800 temperature', self)
+        self._manu.gridlayout.addWidget(setsr800button, 2, 1, 1, 1, QtCore.Qt.AlignLeft)
+        setsr800button.clicked.connect(self.set_sr800temp)
+        #
+
 
         reinitmotorbutton = QtWidgets.QPushButton('Reinit motor', self)
         reinitmotorbutton.setToolTip("Re-Initialize Mirror")
-        self._manu.gridlayout.addWidget(reinitmotorbutton, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(reinitmotorbutton, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
         reinitmotorbutton.clicked.connect(self.reinitmotor)
         #
         roofbutton = QtWidgets.QPushButton('Point to roof', self)
         roofbutton.setToolTip("Point mirror to roof")
-        self._manu.gridlayout.addWidget(roofbutton, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(roofbutton, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
         roofbutton.clicked.connect(self.motor_roof)
         #
         sr80button = QtWidgets.QPushButton('Point to SR80', self)
         sr80button.setToolTip("Point mirror to SR80 black body")
-        self._manu.gridlayout.addWidget(sr80button, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(sr80button, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
         sr80button.clicked.connect(self.motor_sr80)
         #
-        sr800button = QtWidgets.QPushButton('Point to SR880', self)
+        sr800button = QtWidgets.QPushButton('Point to SR800', self)
         sr800button.setToolTip("Point mirror to SR800 black body")
-        self._manu.gridlayout.addWidget(sr800button, 5, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(sr800button, 6, 0, 1, 1, QtCore.Qt.AlignLeft)
         sr800button.clicked.connect(self.motor_sr800)
         #
         ht1button = QtWidgets.QPushButton('Point to ht1', self)
         ht1button.setToolTip("Point mirror to self build heat bed black body")
-        self._manu.gridlayout.addWidget(ht1button, 6, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(ht1button, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
         ht1button.clicked.connect(self.motor_ht1)
         #
         rtbutton = QtWidgets.QPushButton('Point to rt', self)
         rtbutton.setToolTip("Point mirror to self built room temperature black body")
-        self._manu.gridlayout.addWidget(rtbutton, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(rtbutton, 8, 0, 1, 1, QtCore.Qt.AlignLeft)
         rtbutton.clicked.connect(self.motor_rt)
         #
         ir301button = QtWidgets.QPushButton('Point to IR301', self)
         ir301button.setToolTip("Point mirror to IR301 black body")
-        self._manu.gridlayout.addWidget(ir301button, 8, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(ir301button, 9, 0, 1, 1, QtCore.Qt.AlignLeft)
         ir301button.clicked.connect(self.motor_ir301)
         #
         parkbutton = QtWidgets.QPushButton('Park mirror', self)
         parkbutton.setToolTip("Point mirror to park position")
-        self._manu.gridlayout.addWidget(parkbutton, 9, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(parkbutton, 10, 0, 1, 1, QtCore.Qt.AlignLeft)
         parkbutton.clicked.connect(self.motor_park)
         #
         sr800onbutton = QtWidgets.QPushButton('Switch SR800 on', self)
         sr800onbutton.setToolTip("Switch SR800 on")
-        self._manu.gridlayout.addWidget(sr800onbutton, 10, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(sr800onbutton, 3, 1, 1, 1, QtCore.Qt.AlignLeft)
         sr800onbutton.clicked.connect(self.switch_sr800_on)
         #
         sr800offbutton = QtWidgets.QPushButton('Switch SR800 off', self)
         sr800offbutton.setToolTip("Switch SR800 off")
-        self._manu.gridlayout.addWidget(sr800offbutton, 11, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(sr800offbutton, 4, 1, 1, 1, QtCore.Qt.AlignLeft)
         sr800offbutton.clicked.connect(self.switch_sr800_off)
         #
         #
         ir301onbutton = QtWidgets.QPushButton('Switch IR301 on', self)
         ir301onbutton.setToolTip("Switch IR301 on")
-        self._manu.gridlayout.addWidget(ir301onbutton, 12, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(ir301onbutton, 5, 1, 1, 1, QtCore.Qt.AlignLeft)
         ir301onbutton.clicked.connect(self.switch_ir301_on)
         #
         ir301offbutton = QtWidgets.QPushButton('Switch IR301 off', self)
         ir301offbutton.setToolTip("Switch IR301 off")
-        self._manu.gridlayout.addWidget(ir301offbutton, 13, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self._manu.gridlayout.addWidget(ir301offbutton, 6, 1, 1, 1, QtCore.Qt.AlignLeft)
         ir301offbutton.clicked.connect(self.switch_ir301_off)
         #
         self.paramtextbox = QtWidgets.QLineEdit(self)
@@ -238,10 +265,13 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._manu.gridlayout.addWidget(parambutton, 1, 5, 1, 1, QtCore.Qt.AlignRight)
         parambutton.clicked.connect(self.setv80param)
         #
-        # checkBox = QtWidgets.QCheckBox("checkbox")
-        # if self.checkbox: checkBox.toggle()
-        # checkBox.stateChanged.connect(self.setcheckbox)
-        # self.gridlayout.addWidget(checkBox, 0, 1, 1 ,1, QtCore.Qt.AlignRight)
+        self.v80commcheckbox = QtWidgets.QCheckBox('Block Vertex80 communications')
+        self.v80commcheckbox.stateChanged.connect(self.set_blockv80comm)
+        self._manu.gridlayout.addWidget(self.v80commcheckbox, 2, 3, 1 ,1, QtCore.Qt.AlignLeft)
+        #
+        self.sr80commcheckbox = QtWidgets.QCheckBox('Block SR80 communications')
+        self.sr80commcheckbox.stateChanged.connect(self.set_blocksr80comm)
+        self._manu.gridlayout.addWidget(self.sr80commcheckbox, 3, 3, 1, 1, QtCore.Qt.AlignLeft)
         #
         #
         # self.dirlistwidget = QtWidgets.QListWidget()
@@ -255,6 +285,26 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         # Status Box
         self.Init_StatusBox()
         #
+
+    def set_blocksr80comm(self, state):
+        if state == QtCore.Qt.Checked:
+            self.blocksr80comm = True
+            print('Blocking SR80 communications')
+        else:
+            self.blocksr80comm = False
+
+    def set_blockv80comm(self, state):
+        if state == QtCore.Qt.Checked:
+            self.blockv80comm = True
+            print('Blocking Vertex80 communications')
+        else:
+            self.blockv80comm = False
+
+    def set_sr80temp(self):
+        self.setsr80temp(float(self.setsr80textbox.text()))
+
+    def set_sr800temp(self):
+        self.setsr800temp(float(self.setsr800textbox.text()))
 
     def initUI(self):
         self.main = QtWidgets.QWidget()
