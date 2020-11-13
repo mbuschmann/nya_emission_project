@@ -8,7 +8,6 @@ import sys
 
 def make_list(path,ldate,tpath=''):
 
-
     if len(tpath) == 0:
         tpath = path
     atmo = []
@@ -108,17 +107,17 @@ def make_list(path,ldate,tpath=''):
     fid.close()
     return(lfile)
 
-#if __name__ == '__main__':
-#
+if __name__ == '__main__':
+
     #path = '/home/mathias/Vertex80_spectren/20190829'
 
-#    path = sys.argv[1]
-#    ldate = sys.argv[2]
-#    if len(sys.argv) == 4:
-#        make_list(path, ldate, sys.argv[3])
-#    elif len(sys.argv) == 3:
-#        make_list(path, ldate)
-#    else:
-#        print('Call as python3 make_list.py path date(YYYYMMDD) [path in other system]')
+    path = sys.argv[1]
+    ldate = sys.argv[2]
+    if len(sys.argv) == 4:
+        make_list(path, ldate, sys.argv[3])
+    elif len(sys.argv) == 3:
+        make_list(path, ldate)
+    else:
+        print('Call as python3 make_list.py path date(YYYYMMDD) [path in other system]')
     
 
