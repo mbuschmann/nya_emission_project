@@ -62,7 +62,7 @@ def ckOPUS(overRideRestart=False):
     #----------------------------------
     pids = get_pid("opus.exe")
 
-    print "Number of PIDs = {}".format(len(pids))
+    print ("Number of PIDs = {}".format(len(pids)))
 
     #---------------------------------------------
     # OverRideRestart just kills all OPUS programs 
@@ -86,8 +86,8 @@ def ckOPUS(overRideRestart=False):
         # If mulitple PIDs exist... Kill all and set restart flag
         #--------------------------------------------------------
         if len(pids) > 1:
-            print "More than one OPUS programs running. Total number = {}\n".format(len(pids))
-            print "Killing current running OPUS programs\n"
+            print ("More than one OPUS programs running. Total number = {}\n".format(len(pids)))
+            print ("Killing current running OPUS programs\n")
             for pid in pids:
                 os.system("taskkill /F /T /PID {}".format(pid))
             restartFlg = True
@@ -97,7 +97,7 @@ def ckOPUS(overRideRestart=False):
         # If no OPUS programs running set restart flag
         #---------------------------------------------
         elif len(pids) == 0: 
-            print "No instances of OPUS found running. Starting new OPUS..\n"
+            print ("No instances of OPUS found running. Starting new OPUS..\n")
             restartFlg = True
     
         #--------------------------------------------

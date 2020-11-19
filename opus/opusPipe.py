@@ -34,7 +34,7 @@
 
 import os
 import win32pipe, win32file
-from Queue import Queue,Empty       
+from queue import Queue,Empty       
 import string  
 import time  
 
@@ -72,7 +72,7 @@ class OPUSpipe(object):
         if not command.endswith("\r\n"): command += "\r\n"
         
         win32file.SetFilePointer(self.opusHndl,0,win32file.FILE_BEGIN)
-        win32file.WriteFile(self.opusHndl,command,None)
+        win32file.WriteFile(self.opusHndl,command.encode(),None)
         win32file.FlushFileBuffers(self.opusHndl)
     
         return 1
