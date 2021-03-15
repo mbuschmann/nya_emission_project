@@ -8,7 +8,10 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
-import requests
+import urllib
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 scriptpath = os.path.dirname(os.path.abspath(__file__))
 print(scriptpath)
@@ -37,6 +40,8 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self.setWindowTitle(self.title)
         #
         self.checkbox = False
+        #
+        self.emailsent = 0
         #
         self.initUI()
         #
@@ -123,27 +128,27 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         stop_button = QtWidgets.QPushButton('Stop Sequence', self._main)
         stop_button.setToolTip("Stop Sequence immediately")
         self._main.gridlayout.addWidget(stop_button,2,0,1,1)
-        stop_button.clicked.connect(self.terminate_sequence)
+        stop_button.clicked.connect(self.stop_sequence)
 
-        stop_button = QtWidgets.QPushButton('Stop Sequence', self._main)
-        stop_button.setToolTip("Stop Sequence immediately")
-        self._main.gridlayout.addWidget(stop_button, 2, 0, 1, 1)
-        stop_button.clicked.connect(self.terminate_sequence)
+        term_button = QtWidgets.QPushButton('Terminate Sequence', self._main)
+        term_button.setToolTip("Stop Sequence immediately")
+        self._main.gridlayout.addWidget(term_button, 3, 0, 1, 1)
+        term_button.clicked.connect(self.terminate_sequence)
 
         self.ht1textbox = QtWidgets.QLineEdit(self)
         self.ht1textbox.setText('%3i'%self.preset_temps['ht1'])
-        self._main.gridlayout.addWidget(self.ht1textbox, 4, 0, 1, 1)
+        self._main.gridlayout.addWidget(self.ht1textbox, 5, 0, 1, 1)
         ht1tempbutton = QtWidgets.QPushButton('HT1 temp:', self)
         ht1tempbutton.setToolTip("Enter the current HT1 preset temperature")
-        self._main.gridlayout.addWidget(ht1tempbutton, 3, 0, 1, 1, QtCore.Qt.AlignRight)
+        self._main.gridlayout.addWidget(ht1tempbutton, 4, 0, 1, 1, QtCore.Qt.AlignRight)
         ht1tempbutton.clicked.connect(self.setht1param)
 
         self.ir301textbox = QtWidgets.QLineEdit(self)
         self.ir301textbox.setText('%3.1f'%self.preset_temps['ir301'])
-        self._main.gridlayout.addWidget(self.ir301textbox, 6, 0, 1, 1)
+        self._main.gridlayout.addWidget(self.ir301textbox, 7, 0, 1, 1)
         ir301tempbutton = QtWidgets.QPushButton('IR301 temp:', self)
         ir301tempbutton.setToolTip("Enter the current IR301 preset temperature")
-        self._main.gridlayout.addWidget(ir301tempbutton, 5, 0, 1, 1, QtCore.Qt.AlignRight)
+        self._main.gridlayout.addWidget(ir301tempbutton, 6, 0, 1, 1, QtCore.Qt.AlignRight)
         ir301tempbutton.clicked.connect(self.setir301param)
 
         ##matplotlib integration from:
@@ -257,6 +262,11 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._manu.gridlayout.addWidget(ir301offbutton, 6, 1, 1, 1, QtCore.Qt.AlignLeft)
         ir301offbutton.clicked.connect(self.switch_ir301_off)
         #
+        emailbutton = QtWidgets.QPushButton('Send diagnostics email', self)
+        emailbutton.setToolTip("Send diagnostics emai")
+        self._manu.gridlayout.addWidget(emailbutton, 7, 1, 1, 1, QtCore.Qt.AlignLeft)
+        emailbutton.clicked.connect(self.send_diag_email)
+        #
         self.paramtextbox = QtWidgets.QLineEdit(self)
         self.paramtextbox.setText(' | '.join([k + ':' + str(j) for k, j in self.v80.meas_params.items()]))
         self._manu.gridlayout.addWidget(self.paramtextbox, 0, 3, 1, 4)
@@ -285,6 +295,33 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         # Status Box
         self.Init_StatusBox()
         #
+    def send_diag_email(self):
+        sender_address = "ftirserv@uni-bremen.de"
+        #receiver_address = "ftir_nya@iup.physik.uni-bremen.de"
+        receiver_address = "m_buschmann@iup.physik.uni-bremen.de"
+        with open('../ftirserv_email_password') as f:
+            ll = f.readlines()
+        account_password = ll[0].strip()
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "Vertex 80 Error"
+        msg['From'] = sender_address
+        msg['To'] = receiver_address
+
+        msg.attach(MIMEText("Vertex80 Error\n\nhtml output of EWS in html part of this email.", 'plain'))
+
+        htmltexts = {}
+        for htm in ['brow_diag.htm']:#, 'diag_scan.htm', 'diag_DTC.htm', 'diag_laser.htm', 'diag_SRC.htm', 'diag_rdy.htm']:
+            try:
+                with urllib.request.urlopen('http://172.18.0.110/'+htm) as f:
+                     html = f.read()
+                htmltexts[htm] = MIMEText(html.decode('utf8'), 'html')
+            except Exception as e: print(e)
+        for k in htmltexts.keys():
+            msg.attach(htmltexts[k])
+        with smtplib.SMTP_SSL("smtp.uni-bremen.de", 465) as smtp_server:
+            smtp_server.login(sender_address, account_password)
+            smtp_server.sendmail(sender_address, receiver_address, msg.as_string())
 
     def set_blocksr80comm(self, state):
         if state == QtCore.Qt.Checked:
@@ -505,6 +542,17 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         #self.sr80_status.setText('%s'%st)
 
         v80stat = self.v80.get_status()
+
+        # dirty hack to send error email quickly
+        if 'err' in v80stat['status'].lower():
+            time.sleep(20)
+            self.emailsent += 1
+            if 'err' in v80stat['status'].lower() and self.emailsent>60:
+                self.send_diag_email()
+                #self.emailsent=0
+            else: pass
+        else: pass
+
         self.auto_modus.setText(self.actual_job)
         self.seq_modus.setText('%s'%self.run_seq)
         if self.conditions_ok:

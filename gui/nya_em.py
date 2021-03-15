@@ -114,8 +114,19 @@ class NyaEM():
                         continue
                     self.v80.meas_params[ll[0]] = ll[1]
                 if read_con:
-                    self.condition_hutch = True
-                    self.condition_v80 = True
+                    ll = l.strip().split()
+                    if len(ll) == 0:
+                        continue
+                    if ll[0]=='hutch':
+                        if ll[1]=='True':
+                            self.condition_hutch = True
+                        else:
+                            self.condition_hutch = False
+                    elif ll[0]=='v80':
+                        if ll[1]=='True':
+                            self.condition_v80 = True
+                        else:
+                            self.condition_v80 = False
 
     def check_conditions(self):
         # more conditions to be added at some stage
@@ -155,16 +166,19 @@ class NyaEM():
 
     def start_sequence(self):
         self.actual_job = 'run sequence'
+        print('Running sequence')
         logging.warning('Set Job to run sequence')
 
     def stop_sequence(self):
         self.run_seq = False
+        print('Stopping sequence')
         #self.motor_park()
         #self.setsr80temp(20.0)
         logging.warning('Sequence stopped')
 
     def terminate_sequence(self):
         self.stop_measure()
+        print('Terminating sequence')
         self.actual_job = 'idle'
         self.run_seq = False
         logging.warning('Set Job to run idle')
@@ -205,8 +219,13 @@ class NyaEM():
                     logging.warning('Ignoring: set sr80 temp to '+command[2])
                     #self.setsr80temp(float(command[2]))
                 if command[1] == 'sr800':
-                    self.setsr800temp(command[2])
-                    self.sr800_target_temp = command[2]
+                    if command[2] == 'on':
+                        self.switch_sr800_on()
+                    elif command[2] == 'off':
+                        self.switch_sr800_off()
+                    else:
+                        self.setsr800temp(command[2])
+                        self.sr800_target_temp = command[2]
                 if command[1] == 'motor':
                     #if command[2] == 'sr80':
                     #    self.motor_sr80()
