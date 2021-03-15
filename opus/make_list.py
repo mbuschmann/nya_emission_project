@@ -8,7 +8,6 @@ import sys
 
 def make_list(path,ldate,tpath=''):
 
-
     if len(tpath) == 0:
         tpath = path
     atmo = []
@@ -29,8 +28,11 @@ def make_list(path,ldate,tpath=''):
     shot = 'sr800_110.0'
     scold2 = 'sr800_19.9'
     shot2 = 'sr800_109.9'
-
-    files = os.listdir(os.path.join(path,'Emission',ldate))
+    spec_dir = os.path.join(path,'Emission',ldate)
+    if not os.path.exists(spec_dir):
+        print('Sirectory {} does not exist'.format(spec_dir))
+        return(-1)
+    files = os.listdir(spec_dir)
     lfile = '{}{}'.format(ldate,'.list')
     
     fid = open(lfile,'w')
