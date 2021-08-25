@@ -16,18 +16,18 @@ def make_list(path,ldate,tpath=''):
     hot = []
 
     #scold = 'sr80'
-    #scold = 'rt'
-    scold = 'bb_20.0'
+    scold = 'rt'
+    #scold = 'bb_20.0'
     #shot = 'ir301'
     #shot = 'ht1'
-    shot = 'bb_100.0'
+    #shot = 'bb_100.0'
     ssky = 'roof'
     # ssky = 'up'
     # ssky = 'ir301'
-    scold = 'sr800_20.0'
-    shot = 'sr800_110.0'
+    #scold = 'sr800_20.0'
+    shot = 'sr800_120.0'
     scold2 = 'sr800_19.9'
-    shot2 = 'sr800_109.9'
+    shot2 = 'sr800_119.9'
     spec_dir = os.path.join(path,'Emission',ldate)
     if not os.path.exists(spec_dir):
         print('Sirectory {} does not exist'.format(spec_dir))
