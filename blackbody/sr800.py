@@ -1,4 +1,4 @@
-import socket, struct
+import socket, struct, sys
 import numpy as np
 
 class sr800:
@@ -8,7 +8,9 @@ class sr800:
         self.code_sp = [0x06]  # Service code send parameter
         self.size = [0x00,0x0A]
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.settimeout(10.0)
         self.sock.connect((addr,5200))
+        self.sock.settimeout(None)
 
     def __del__(self):
         self.sock.close()
@@ -22,6 +24,7 @@ class sr800:
 
 
     def set_temperature(self,T):
+        print(T)
         thex = bytes.fromhex(self.float_2_hex(T)[2:]) # ???
         tdec = list(map(lambda x: x, thex))
 
@@ -73,7 +76,8 @@ class sr800:
 
 if __name__ == '__main__':
     s8 = sr800()
-    #s8.set_temperature(25.0)
+    if len(sys.argv) == 2:
+        s8.set_temperature(float(sys.argv[1]))
     print(s8.get_temperature())
     print(s8.get_stability())
 
