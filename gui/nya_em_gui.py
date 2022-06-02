@@ -422,9 +422,10 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         statbox.gridlayout = QtWidgets.QGridLayout()
 
         ### Conditions OK?
-        statlabel = QtWidgets.QLabel(statbox)
-        statlabel.setText('Conditions')
-        statbox.gridlayout.addWidget(statlabel, 0, 0, 1, 2, QtCore.Qt.AlignLeft)
+        self.statlabel = QtWidgets.QLabel(statbox)
+        self.statlabel.setText('Conditions')
+        self.change_label_backgroundcolor(self, self.statlabel, 'yellow')
+        statbox.gridlayout.addWidget(self.statlabel, 0, 0, 1, 2, QtCore.Qt.AlignLeft)
 
         self.conds = QtWidgets.QLabel(statbox)
         statbox.gridlayout.addWidget(self.conds, 0, 1, 1, 1, QtCore.Qt.AlignLeft)
@@ -553,6 +554,9 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
 
         sbox.setLayout(sbox.gridlayout)
 
+    def change_label_backgroundcolor(self, label, color):
+        label.setStyleSheet("background-color: "+color+"; border: 1px solid black;")
+
     def Update_StatusBox(self):
         t = self.sr800.get_temperature()
         st = self.sr800.get_stability()
@@ -585,8 +589,10 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
            self.run_modus.setText('0')
         if self.conditions_ok:
             self.conds.setText('OK')
+            self.change_label_backgroundcolor(self, self.statlabel, 'green')
         else:
             self.conds.setText('Not OK')
+            self.change_label_backgroundcolor(self, self.statlabel, 'red')
         self.v80_status.setText(v80stat['status'])
         self.v80_detector.setText(v80stat['detector'])
         self.v80_datafile.setText(v80stat['datafile'])
