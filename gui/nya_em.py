@@ -18,7 +18,7 @@ sys.path.append(os.path.join(scriptpath, 'vertex80'))
 sys.path.append(os.path.join(scriptpath, 'gui'))
 sys.path.append(os.path.join(scriptpath, '..', 'ftsreader'))
 from blackbodymotor_pytmcl import motorctrl
-from sr80 import sr80
+#from sr80 import sr80
 from sr800 import sr800
 from Vertex80 import Vertex80
 from hutchsensor import hutchsensor
@@ -35,11 +35,12 @@ class NyaEM():
         logging.warning('Starting nya_em.py')
 
         self.preset_temps = {'ir301': 120.0,
-                             'ht1': 90.0,
+                             'ht': 0.0,
                              'lim':0.0}
 
         self.folder = os.path.abspath(folder)
         self.sequence_file = 'z:\\in\\routine_measurement.txt'
+        self.meas_start_time = dt.datetime.now()
         #
         if sys.platform.startswith('win'):
             self.motor_com = "COM3"
@@ -73,6 +74,8 @@ class NyaEM():
         # Conditions for measurement
         self.condition_hutch = False
         self.condition_v80 = True
+		
+        self.bbtemp = -1
 
 
         self.load_sequence(self.sequence_file)
@@ -94,6 +97,10 @@ class NyaEM():
                     read_v80 = False
                     nr = 1
                     continue
+                if l.strip() == '':
+                    read_seq = False
+                    read_con = False
+                    read_v80 = False
                 elif l.strip() == 'v80 parms':
                     read_seq = False
                     read_con = False
@@ -173,7 +180,6 @@ class NyaEM():
         self.run_seq = False
         print('Stopping sequence')
         #self.motor_park()
-        #self.setsr80temp(20.0)
         logging.warning('Sequence stopped')
 
     def terminate_sequence(self):
@@ -250,18 +256,7 @@ class NyaEM():
                 elif command[1] == 'repeat':
                     self.measurement_repeat = True
             elif command[0] == 'wait':
-                if command[1] == 'sr80':
-                    logging.warning('Ignoring: wait sr80 temp to stabilize')
-                    pass
-                    ## wait for sr80 to stabilize
-                    ## self.SR80_stable is set by
-                    #self.Temperature_reached()
-                    #if not self.SR80_stable:
-                    #    self.entry -= 1
-                    #    break
-                    #else:
-                    #    pass
-                elif command[1] == 'sr800':
+                if command[1] == 'sr800':
                     # wait for sr800 to stabilize
                     # self.SR80_stable is set by
                     #self.Temperature_reached()
@@ -275,8 +270,7 @@ class NyaEM():
                         pass
                 elif command[1] == 'time':
                     # Set a timer, goes on only after the time is more than self.time_continue
-                    print(self.time_continue)
-                    print(dt.datetime.now())
+                    print(dt.datetime.now(), ' -> ', int((self.time_continue-dt.datetime.now()).total_seconds()), 's to go')
                     if dt.datetime.now() < self.time_continue:
                         self.entry -= 1
                         break
@@ -292,6 +286,10 @@ class NyaEM():
                             self.entry -= 1
             elif command[0] == 'loop':
                 self.entry = int(command[1])
+            elif command[0] == 'end':
+                self.terminate_sequence()
+                self.entry = -1
+                break
             else:
                 unknown = True
 
@@ -306,7 +304,7 @@ class NyaEM():
             t = ''
         elif p=='roof':
             t = ''
-        #elif p=='ht1':
+        #elif p=='ht':
         #    t = 'seelog'
         else:
             t = '_%03.3f'%(self.preset_temps[p])
@@ -318,7 +316,11 @@ class NyaEM():
             os.mkdir(path)
         self.act_filename = os.path.join(path,fname)
         self.v80.measure()
+        self.meas_start_time = dt.datetime.now()
 #        self.new_measurement = False
+
+    def meas_started(self):
+        return(self.meas_start_time)
 
     def repeat_measure(self):
         stat = self.v80.get_status()
@@ -335,6 +337,7 @@ class NyaEM():
         if (self.actual_job == 'run sequence'):
             self.v80.get_data(file)
             self.last_meas_file = file
+            print('Recorded interferogram:', self.last_meas_file)
             self.new_measurement = True
             try:
                 new_meas = ftsreader(self.last_meas_file)
@@ -355,8 +358,8 @@ class NyaEM():
     def motor_roof(self):
         self.motor.movetoposition('roof')
 
-    def motor_ht1(self):
-        self.motor.movetoposition('ht1')
+    def motor_ht(self):
+        self.motor.movetoposition('ht')
 
     def motor_rt(self):
         self.motor.movetoposition('rt')
@@ -385,17 +388,11 @@ class NyaEM():
         self.brennenstuhl.switch_off('0')
 
     def initinstruments(self):
-        self.sr80 = sr80(blockcomm=self.blocksr80comm)
-        self.sr800 = sr800(addr='172.18.0.140')
+        self.sr800 = sr800(addr='172.18.0.140', blockcomm = self.blocksr80comm)
         self.motor = motorctrl(self.motor_com, blockcomm = self.blockmotorcomm)
         self.brennenstuhl = brennenstuhl('172.18.0.150')
         self.v80 = Vertex80()
         self.maxnumber = 1
-        #t = -999
-        #while  t == -999:
-        #    t = self.sr80.get_temperature()
-        #    time.sleep(1)
-        #self.bbtemp = t
         self.hutch = hutchsensor(self.hutch_com)
 
 
@@ -413,10 +410,10 @@ class NyaEM():
         for i, j in self.v80.meas_params.items():
             print(i,':',j)
 
-    def setht1param(self):
-        l = self.ht1textbox.text().strip()
-        self.preset_temps['ht1'] = float(l)
-        print('set ht1 temp preset to :',l)
+    def sethtparam(self):
+        l = self.httextbox.text().strip()
+        self.preset_temps['ht'] = float(l)
+        print('set ht temp preset to :',l)
 
     def setir301param(self):
         l = self.ir301textbox.text().strip()
@@ -425,6 +422,7 @@ class NyaEM():
 
     def setsr800temp(self, new_T):
         self.sr800newT = new_T
+        self.bbtemp = float(new_T)
         self.sr800.set_temperature(float(new_T))
         print('set sr800 temp to', new_T)
         logging.warning('set sr800 temp to %3.2f'%float(new_T))

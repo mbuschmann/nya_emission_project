@@ -17,18 +17,20 @@ def make_list(path,ldate,tpath=''):
 
     #scold = 'sr80'
     #scold = 'rt'
-    scold = 'bb_20.0'
+    scold = 'ht_0'
+    #scold = 'bb_20.0'
     #shot = 'ir301'
     #shot = 'ht1'
-    shot = 'bb_100.0'
+    #shot = 'bb_100.0'
     ssky = 'roof'
     # ssky = 'up'
     # ssky = 'ir301'
-    scold = 'sr800_20.0'
-    shot = 'sr800_110.0'
+    #scold = 'sr800_20.0'
+    shot = 'sr800_120.0'
     scold2 = 'sr800_19.9'
-    shot2 = 'sr800_109.9'
-    spec_dir = os.path.join(path,'Emission',ldate)
+    shot2 = 'sr800_119.9'
+    #spec_dir = os.path.join(path,'Emission',ldate)
+    spec_dir = os.path.join(path,ldate)
     if not os.path.exists(spec_dir):
         print('Sirectory {} does not exist'.format(spec_dir))
         return(-1)
@@ -93,6 +95,7 @@ def make_list(path,ldate,tpath=''):
     fid.write('{}\n'.format(len(atmo)))
     for at in atmo:
 	# find nearest cold spectrum
+        print(at)
         ic = np.argmin(np.abs(at[1] - np.array(cold)[:,1]))
         # find nearest hot spectrum
         ih = np.argmin(np.abs(at[1] - np.array(hot)[:,1]))

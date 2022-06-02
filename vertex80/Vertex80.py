@@ -1,4 +1,5 @@
 import requests,os,time,sys
+from datetime import datetime
 from time import sleep
 
 class Vertex80():
@@ -11,15 +12,19 @@ class Vertex80():
         self.cmd_htm = '/'.join((self.url_ftir,'cmd.htm'))
         self.diag_htm = '/'.join((self.url_ftir, 'diag.htm'))
         self.data_htm = '/'.join((self.url_ftir, 'datafile.htm'))
-        self.init_params = {'WRK':1,
+        self.init_params = {'WRK':8,
                             'CNM':'AUTOVertex',
                             'FLP': 0,
                             'SRC': 0}
         html_line = '&'.join(['='.join((x[0].strip(), str(x[1]).strip())) for x in self.init_params.items()])
         meas_command = '/'.join((self.url_ftir,self.cmd_htm))
         print('?'.join((self.cmd_htm,html_line)))
-        requests.get('?'.join((self.cmd_htm,html_line)))
+        r = requests.get('?'.join((self.cmd_htm,html_line)))
+        print(r)
+        #r = requests.get('http://172.18.0.110/directcmd.htm?submit=Send+command+line&UNI=CMA%3D%2540A%26CMA%3D%254032%26CMA%3D%2540Z')
+        #print(r)
         self.spectrumupdated = False
+
         
     def default_meas(self): 
         self.meas_params =  {'FLP': 0,
@@ -42,7 +47,7 @@ class Vertex80():
                             'DEL': 0,
                             'WRK': 1,
                             'PHR': 2.0,
-                            'COR': 0,
+                            'COR': 1,
                             'GNS': 1}
 
     def set_samplename(self, name):
@@ -79,13 +84,24 @@ class Vertex80():
         i2 = data.text.find('<TD>', i1)
         i3 = data.text.find('</TD>', i2)
         status['datafile'] = data.text[i2+4:i3]
+
+
         return (status)
 
     def measure(self):
         html_line = '&'.join(['='.join((x[0].strip(), str(x[1]).strip())) for x in self.meas_params.items()])
+        #if meas_params['COR'] == 1:
+        #    #Correlation mask noch nicht getestet.
+        #	#html_line = '&'.join((html_line,self.set_correlation_mask()))
         meas_command = '/'.join((self.url_ftir,self.cmd_htm))
         print('?'.join((self.cmd_htm,html_line)))
         requests.get('?'.join((self.cmd_htm,html_line)))
+
+    def set_correlation_mask(self):
+        mask_start = 'CMA%3D%2540A%26'
+        mask_stop  = 'CMA%3D%2540Z'
+        mask_bit = 'CMA%3d%254032%26' #IFG_LENGTH_DIFF
+        pass
 
     def get_data(self, filename='none'):
         status = self.get_status()
@@ -108,8 +124,8 @@ if __name__=='__main__':
     
     
     v80 = Vertex80()
-#    status = v80.get_status()
-    v80.measure()
+    status = v80.get_status()
+#    v80.measure()
     while v80.get_status()['status'] != 'IDL':
         sleep(1)
         print(v80.get_status()['status'])

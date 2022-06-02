@@ -3,17 +3,22 @@ import numpy as np
 
 class sr800:
 
-    def __init__(self, addr='172.18.0.140'):
-        self.header = [0xAA,0x01]
-        self.code_sp = [0x06]  # Service code send parameter
-        self.size = [0x00,0x0A]
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.settimeout(10.0)
-        self.sock.connect((addr,5200))
-        self.sock.settimeout(None)
+    def __init__(self, addr='172.18.0.140', blockcomm=False):
+        self.blocksr80comm = blockcomm
+        if not self.blocksr80comm:
+            self.header = [0xAA,0x01]
+            self.code_sp = [0x06]  # Service code send parameter
+            self.size = [0x00,0x0A]
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.settimeout(10.0)
+            self.sock.connect((addr,5200))
+            self.sock.settimeout(None)
+        else:
+            print('SR800 communications blocked ... not initializing!')
 
     def __del__(self):
-        self.sock.close()
+        if not self.blocksr80comm:
+            self.sock.close()
         
     def float_2_hex(self,Tset):
         return(hex(struct.unpack('<I', struct.pack('<f', Tset))[0]))
@@ -43,33 +48,40 @@ class sr800:
         st1 = bytes(st11)
         print(T, st11)
         #st1 = b'\xAA\x01\x00\x0A\x06\x07\xF1\x00\x04\x42\xC8\x00\x00\x3F'
-        self.sock.send(st1)
+        if not self.blocksr80comm:
+            self.sock.send(st1)
 
     def get_temperature(self):
 #        st = [0xAA,0x01,0x00,0x0A,0x08,0x07,0xF0,0x00,0x00,0x07,0xD7,0x00,0x00,0x6E]
         st = [0xaa,0x01,0x00,0x16,0x88,0x07,0xd5,0x00,0x00,0x07,0xf0,0x00,0x00,0x07,0xd7,0x00,0x00,0x07,0xd9,0x00,0x00,0x07,0xf3,0x00,0x00,0x2c]
-        self.sock.send(bytes(st));
-#        import ipdb
-#        ipdb.set_trace()
-        ans = self.sock.recv(1024);
-#        T = struct.unpack('>f', b''.join((ans[14:16],ans[12:14])))
-        T = struct.unpack('>f', ans[22:26])
-#        T = struct.unpack('>f', b''.join((ans[24:26],ans[22:24])))
-#        thex = b''.join((ans[14:16],ans[13:11:-1]))
-#        tbin = bin(struct.unpack('>I', b''.join((ans[14:16],ans[12:14])))[0])
-#        tbin2 = bin(struct.unpack('>I', ans[12:16])[0])
-#        return(T,thex,tbin, tbin2)
-        return(T[0])
+        if not self.blocksr80comm:
+            self.sock.send(bytes(st));
+    #        import ipdb
+    #        ipdb.set_trace()
+            ans = self.sock.recv(1024);
+    #        T = struct.unpack('>f', b''.join((ans[14:16],ans[12:14])))
+            T = struct.unpack('>f', ans[22:26])
+    #        T = struct.unpack('>f', b''.join((ans[24:26],ans[22:24])))
+    #        thex = b''.join((ans[14:16],ans[13:11:-1]))
+    #        tbin = bin(struct.unpack('>I', b''.join((ans[14:16],ans[12:14])))[0])
+    #        tbin2 = bin(struct.unpack('>I', ans[12:16])[0])
+    #        return(T,thex,tbin, tbin2)
+            return(T[0])
+        else:
+            return(-99.99)
 
     def get_stability(self):
         st = [0xAA, 0x01, 0x00, 0x06, 0x08, 0x07, 0xd5, 0x00, 0x00, 0x6b]
 
-        self.sock.send(bytes(st));
-        ans = self.sock.recv(1024);
-        if struct.unpack('>I', ans[-5:-1])[0] == 1:
-            return(True)
+        if not self.blocksr80comm:
+            self.sock.send(bytes(st));
+            ans = self.sock.recv(1024);
+            if struct.unpack('>I', ans[-5:-1])[0] == 1:
+                return(True)
+            else:
+                return(False)
         else:
-            return(False)
+            return(True)
         
 ## Antwort holen mit self.sock.recv(124) (SR800 Laenge max 1024 Bytes).
 # Beispiel im Manual 
