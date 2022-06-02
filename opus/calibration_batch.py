@@ -2,6 +2,8 @@
 
 # batch to create spectralist and run opus macro on this list.
 
+# batch to create spectralist and run opus macro on this list.
+
 from opusPipe import OPUSpipe
 from ckOPUS import ckOPUS
 from time import sleep
@@ -26,6 +28,7 @@ def run_opus_batch(s_date = 0, e_date = 0):
         spec_path = r'z:\out'
         list_dir = r"z:\out"
 
+
         for aktdate in drange(s_date,e_date,timedelta(days=1)):
                 ifile = make_list(spec_path, num2date(aktdate).strftime('%Y%m%d'),'1')
                 if ifile == -1:
@@ -35,8 +38,10 @@ def run_opus_batch(s_date = 0, e_date = 0):
                 print(ifile)
                 
                 inp_file = r"{}".format(ifile)
+
                 out_dir =  "z:\\out\\Emission"
                 mtxfile = r"c:\Users\ftir\nya_emission_project\opus\hot_cold_from_list.mtx"
+
                 cmdstring = r"START_MACRO {} 2\n".format(mtxfile)
                 argstring = "{0:}\n{1:}\n".format(inp_file, out_dir)
                 ckOPUS(overRideRestart=True)

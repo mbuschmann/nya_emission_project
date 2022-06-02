@@ -1,0 +1,4 @@
+make_list creates a list for the opus macro hot_cold_from_list.mtx from all stored spectra.
+	  check the program for the filenames and their locations.
+
+calibration_batch.py creates the list and cals OPUS via a pipe and runs the macro hot_cold_from_list.mtx on this list.

@@ -16,8 +16,12 @@ def make_list(path,ldate,tpath=''):
     hot = []
 
     #scold = 'sr80'
+<<<<<<< HEAD
     #scold = 'rt'
     scold = 'ht_0'
+=======
+    scold = 'rt'
+>>>>>>> 9ab68bc7c7f554907a618ce197fb2d504c21d14a
     #scold = 'bb_20.0'
     #shot = 'ir301'
     #shot = 'ht1'
@@ -29,8 +33,12 @@ def make_list(path,ldate,tpath=''):
     shot = 'sr800_120.0'
     scold2 = 'sr800_19.9'
     shot2 = 'sr800_119.9'
+<<<<<<< HEAD
     #spec_dir = os.path.join(path,'Emission',ldate)
     spec_dir = os.path.join(path,ldate)
+=======
+    spec_dir = os.path.join(path,'Emission',ldate)
+>>>>>>> 9ab68bc7c7f554907a618ce197fb2d504c21d14a
     if not os.path.exists(spec_dir):
         print('Sirectory {} does not exist'.format(spec_dir))
         return(-1)
