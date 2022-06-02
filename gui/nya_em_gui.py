@@ -135,13 +135,13 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._main.gridlayout.addWidget(term_button, 3, 0, 1, 1)
         term_button.clicked.connect(self.terminate_sequence)
 
-        self.ht1textbox = QtWidgets.QLineEdit(self)
-        self.ht1textbox.setText('%3i'%self.preset_temps['ht1'])
-        self._main.gridlayout.addWidget(self.ht1textbox, 5, 0, 1, 1)
-        ht1tempbutton = QtWidgets.QPushButton('HT1 temp:', self)
-        ht1tempbutton.setToolTip("Enter the current HT1 preset temperature")
-        self._main.gridlayout.addWidget(ht1tempbutton, 4, 0, 1, 1, QtCore.Qt.AlignRight)
-        ht1tempbutton.clicked.connect(self.setht1param)
+        self.httextbox = QtWidgets.QLineEdit(self)
+        self.httextbox.setText('%3i'%self.preset_temps['ht'])
+        self._main.gridlayout.addWidget(self.httextbox, 5, 0, 1, 1)
+        httempbutton = QtWidgets.QPushButton('HT temp:', self)
+        httempbutton.setToolTip("Enter the current HT preset temperature")
+        self._main.gridlayout.addWidget(httempbutton, 4, 0, 1, 1, QtCore.Qt.AlignRight)
+        httempbutton.clicked.connect(self.sethtparam)
 
         self.ir301textbox = QtWidgets.QLineEdit(self)
         self.ir301textbox.setText('%3.1f'%self.preset_temps['ir301'])
@@ -190,7 +190,7 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._manu.gridlayout.addWidget(self.setsr80textbox, 1, 0, 1, 1, QtCore.Qt.AlignLeft)
         setsr80button = QtWidgets.QPushButton('Set SR80 temperature', self)
         self._manu.gridlayout.addWidget(setsr80button, 1, 1, 1, 1, QtCore.Qt.AlignLeft)
-        setsr80button.clicked.connect(self.set_sr80temp)
+        setsr80button.clicked.connect(self.set_sr800temp)
         #
         self.setsr800textbox = QtWidgets.QLineEdit(self)
         self.setsr800textbox.setText('20')
@@ -221,10 +221,10 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self._manu.gridlayout.addWidget(sr800button, 6, 0, 1, 1, QtCore.Qt.AlignLeft)
         sr800button.clicked.connect(self.motor_sr800)
         #
-        ht1button = QtWidgets.QPushButton('Point to ht1', self)
-        ht1button.setToolTip("Point mirror to self build heat bed black body")
-        self._manu.gridlayout.addWidget(ht1button, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
-        ht1button.clicked.connect(self.motor_ht1)
+        htbutton = QtWidgets.QPushButton('Point to ht', self)
+        htbutton.setToolTip("Point mirror to self build heat bed black body")
+        self._manu.gridlayout.addWidget(htbutton, 7, 0, 1, 1, QtCore.Qt.AlignLeft)
+        htbutton.clicked.connect(self.motor_ht)
         #
         rtbutton = QtWidgets.QPushButton('Point to rt', self)
         rtbutton.setToolTip("Point mirror to self built room temperature black body")
@@ -263,9 +263,14 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         ir301offbutton.clicked.connect(self.switch_ir301_off)
         #
         emailbutton = QtWidgets.QPushButton('Send diagnostics email', self)
-        emailbutton.setToolTip("Send diagnostics emai")
+        emailbutton.setToolTip("Send diagnostics email")
         self._manu.gridlayout.addWidget(emailbutton, 7, 1, 1, 1, QtCore.Qt.AlignLeft)
         emailbutton.clicked.connect(self.send_diag_email)
+        #
+        emailbutton2 = QtWidgets.QPushButton('Reset error email counter', self)
+        emailbutton2.setToolTip("Reseterror email counter")
+        self._manu.gridlayout.addWidget(emailbutton2, 8, 1, 1, 1, QtCore.Qt.AlignLeft)
+        emailbutton2.clicked.connect(self.reset_email_counter)
         #
         self.paramtextbox = QtWidgets.QLineEdit(self)
         self.paramtextbox.setText(' | '.join([k + ':' + str(j) for k, j in self.v80.meas_params.items()]))
@@ -295,10 +300,15 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         # Status Box
         self.Init_StatusBox()
         #
+
+    def reset_email_counter(self):
+        print('Reset email counter to 0')
+        self.emailsent = 0
+
     def send_diag_email(self):
         sender_address = "ftirserv@uni-bremen.de"
-        #receiver_address = "ftir_nya@iup.physik.uni-bremen.de"
-        receiver_address = "m_buschmann@iup.physik.uni-bremen.de"
+        receiver_address = "ftir_nya@iup.physik.uni-bremen.de"
+        #receiver_address = "m_buschmann@iup.physik.uni-bremen.de"
         with open('../ftirserv_email_password') as f:
             ll = f.readlines()
         account_password = ll[0].strip()
@@ -322,6 +332,7 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         with smtplib.SMTP_SSL("smtp.uni-bremen.de", 465) as smtp_server:
             smtp_server.login(sender_address, account_password)
             smtp_server.sendmail(sender_address, receiver_address, msg.as_string())
+        print('Diagnostics email sent.')
 
     def set_blocksr80comm(self, state):
         if state == QtCore.Qt.Checked:
@@ -434,41 +445,49 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self.seq_modus = QtWidgets.QLabel(statbox)
         statbox.gridlayout.addWidget(self.seq_modus, 2, 1, 1, 1, QtCore.Qt.AlignLeft)
 
+        runlabel = QtWidgets.QLabel(statbox)
+        runlabel.setText('Meas running since')
+        statbox.gridlayout.addWidget(runlabel,3,0,1,1,QtCore.Qt.AlignLeft)
+
+        self.run_modus = QtWidgets.QLabel(statbox)
+        statbox.gridlayout.addWidget(self.run_modus, 3, 1, 1, 1, QtCore.Qt.AlignLeft)		
+		
+        self.seq_modus = QtWidgets.QLabel(statbox)
+        statbox.gridlayout.addWidget(self.seq_modus, 2, 1, 1, 1, QtCore.Qt.AlignLeft)
+
         statbox.setLayout(statbox.gridlayout)
 
 
-        ### SR 80 monitor box
+        ### SR 800 monitor box
 
         tempbox = QtWidgets.QGroupBox(sbox)
         sbox.gridlayout.addWidget(tempbox,2,0,1,1)
 
         tempbox.gridlayout = QtWidgets.QGridLayout()
         templabel = QtWidgets.QLabel(tempbox)
-        templabel.setText('SR80 Temperature')
+        templabel.setText('SR800 Temperature')
         tempbox.gridlayout.addWidget(templabel,1,0,1,2,QtCore.Qt.AlignLeft)
-#        self.sr80_temp = QtWidgets.QLabel(sbox)
-#        sbox.gridlayout.addWidget(self.sr80_temp,1,1,1,1,QtCore.Qt.AlignLeft)
 
-        sr80_l1 = QtWidgets.QLabel(tempbox)
-        sr80_l1.setText('Target')
-        tempbox.gridlayout.addWidget(sr80_l1, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
+        sr800_l1 = QtWidgets.QLabel(tempbox)
+        sr800_l1.setText('Target')
+        tempbox.gridlayout.addWidget(sr800_l1, 2, 0, 1, 1, QtCore.Qt.AlignLeft)
 
-        self.sr80_target = QtWidgets.QLabel(tempbox)
-        tempbox.gridlayout.addWidget(self.sr80_target,2,1,1,1,QtCore.Qt.AlignLeft)
+        self.sr800_target = QtWidgets.QLabel(tempbox)
+        tempbox.gridlayout.addWidget(self.sr800_target,2,1,1,1,QtCore.Qt.AlignLeft)
 
-        sr80_l1 = QtWidgets.QLabel(tempbox)
-        sr80_l1.setText('Reached')
-        tempbox.gridlayout.addWidget(sr80_l1, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
+        sr800_l1 = QtWidgets.QLabel(tempbox)
+        sr800_l1.setText('Reached')
+        tempbox.gridlayout.addWidget(sr800_l1, 3, 0, 1, 1, QtCore.Qt.AlignLeft)
 
-        self.sr80_reached = QtWidgets.QLabel(tempbox)
-        tempbox.gridlayout.addWidget(self.sr80_reached,3,1,1,1,QtCore.Qt.AlignLeft)
+        self.sr800_reached = QtWidgets.QLabel(tempbox)
+        tempbox.gridlayout.addWidget(self.sr800_reached,3,1,1,1,QtCore.Qt.AlignLeft)
 
-        sr80_l1 = QtWidgets.QLabel(tempbox)
-        sr80_l1.setText('Stable')
-        tempbox.gridlayout.addWidget(sr80_l1, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
+        sr800_l1 = QtWidgets.QLabel(tempbox)
+        sr800_l1.setText('Stable')
+        tempbox.gridlayout.addWidget(sr800_l1, 4, 0, 1, 1, QtCore.Qt.AlignLeft)
 
-        self.sr80_status = QtWidgets.QLabel(tempbox)
-        tempbox.gridlayout.addWidget(self.sr80_status,4,1,1,1,QtCore.Qt.AlignLeft)
+        self.sr800_status = QtWidgets.QLabel(tempbox)
+        tempbox.gridlayout.addWidget(self.sr800_status,4,1,1,1,QtCore.Qt.AlignLeft)
         tempbox.setLayout(tempbox.gridlayout)
 
         #### VR80 Monitor box
@@ -535,19 +554,23 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         sbox.setLayout(sbox.gridlayout)
 
     def Update_StatusBox(self):
-        #t = self.sr80.get_temperature()
-        #t1,t2,st = self.Temperature_reached()
-        #self.sr80_target.setText('%.2f'%self.bbtemp)
-        #self.sr80_reached.setText('%.2f'%t)
-        #self.sr80_status.setText('%s'%st)
+        t = self.sr800.get_temperature()
+        st = self.sr800.get_stability()
+#        t1,t2,st = self.Temperature_reached()
+        self.sr800_target.setText('%.2f'%self.bbtemp)
+        self.sr800_reached.setText('%.2f'%t)
+        self.sr800_status.setText('%s'%st)
 
         v80stat = self.v80.get_status()
 
         # dirty hack to send error email quickly
+		
         if 'err' in v80stat['status'].lower():
+            print('Error detected: '+v80stat['status'])
+            print('Error count:'+str(self.emailsent))
             time.sleep(20)
             self.emailsent += 1
-            if 'err' in v80stat['status'].lower() and self.emailsent>60:
+            if 'err' in v80stat['status'].lower() and self.emailsent==60:
                 self.send_diag_email()
                 #self.emailsent=0
             else: pass
@@ -555,6 +578,11 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
 
         self.auto_modus.setText(self.actual_job)
         self.seq_modus.setText('%s'%self.run_seq)
+        self.meas_time = (dt.datetime.now()-self.meas_started()).seconds
+        if self.run_seq:
+           self.run_modus.setText('%d'%(self.meas_time))
+        else:
+           self.run_modus.setText('0')
         if self.conditions_ok:
             self.conds.setText('OK')
         else:
@@ -567,7 +595,10 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
         self.hutch_status.setText(self.hutchstatus['hutch'])
         self.hutch_remote.setText(self.hutchstatus['remote'])
         
-        self.actual_line.setText('%d: %s'%(self.entry, self.sequence[self.entry]))
+        if self.entry <= 0:
+            self.actual_line.setText('%d: finished'%(self.entry))
+        else:
+            self.actual_line.setText('%d: %s'%(self.entry, self.sequence[self.entry]))
 
         #new_file = self.get_newmeasurement()
         #print ('New file', new_file)
@@ -589,6 +620,10 @@ class nyaemgui(NyaEM, QtWidgets.QMainWindow,fft_ftir):
             pass
 
     def _update_actual_line(self):
+        #print(self.sequence)
+        if self.entry <= 0:
+            self.actual_line.setText('-1: END')
+            return()
         self.actual_line.setText('%d: %s' % (self.entry, self.sequence[self.entry]))
         
     #def _update_canvas(self, file):
